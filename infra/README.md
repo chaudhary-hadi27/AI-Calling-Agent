@@ -108,15 +108,6 @@ This document provides a detailed explanation of the infrastructure setup for th
 
   * ELK Stack (Elasticsearch, Logstash, Kibana)
   * Centralized error and activity logging
-
----
-
-## Infrastructure Diagram
-
-![Infrastructure Diagram](../images/infrastructure-diagram.png)
-
-(The diagram illustrates frontend, backend, AI services, databases, and cloud setup.)
-
 ---
 
 ## Deployment Flow
