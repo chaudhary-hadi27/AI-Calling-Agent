@@ -18,16 +18,19 @@ AI-Calling-Agent/
 │   ├── services/
 │   ├── models/
 │   ├── requirements.txt
+│   ├── Dockerfile
 │   └── .env
 │
 ├── crm/            # CRM microservice (Contacts, Campaigns, Logs)
 │   ├── app/
 │   ├── requirements.txt
+│   ├── Dockerfile
 │   └── .env
 │
 ├── frontend/       # Next.js frontend (Dashboard + CRM UI)
 │   ├── src/
 │   ├── package.json
+│   ├── Dockerfile
 │   └── .env
 │
 ├── database/       # PostgreSQL database + init scripts
