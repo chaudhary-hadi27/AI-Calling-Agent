@@ -12,6 +12,7 @@ AI-Calling-Agent/
 ├── backend/        # FastAPI backend (Core API + CRM bridge)
 │   ├── app/
 │   ├── requirements.txt
+│   ├── Dockerfile
 │   └── .env
 │
 ├── ai_engine/      # AI microservice (STT, TTS, LLM, Call Flow)
