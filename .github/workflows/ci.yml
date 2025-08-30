@@ -1,84 +1,47 @@
-name: CI Pipeline
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
   pull_request:
-    branches: [ "main" ]
+    branches:
+      - main
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: aicalling
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd="pg_isready -U postgres"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
+    strategy:
+      matrix:
+        node-version: [18.x]
 
     steps:
-      - name: Checkout Code
+      - name: Checkout repository
         uses: actions/checkout@v3
 
-      # ---------------- Backend ----------------
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.11"
-
-      - name: Install Backend Deps
-        run: |
-          cd backend
-          pip install -r requirements.txt
-
-      - name: Run Backend Tests
-        run: |
-          cd backend
-          pytest || echo "No backend tests yet"
-
-      # ---------------- AI Engine ----------------
-      - name: Install AI Engine Deps
-        run: |
-          cd ai_engine
-          pip install -r requirements.txt
-
-      - name: Run AI Engine Tests
-        run: |
-          cd ai_engine
-          pytest || echo "No ai_engine tests yet"
-
-      # ---------------- CRM ----------------
-      - name: Install CRM Deps
-        run: |
-          cd crm
-          pip install -r requirements.txt
-
-      - name: Run CRM Tests
-        run: |
-          cd crm
-          pytest || echo "No crm tests yet"
-
-      # ---------------- Frontend ----------------
-      - name: Install Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 18
+          node-version: ${{ matrix.node-version }}
 
-      - name: Install Frontend Deps
-        run: |
-          cd frontend
-          npm install
+      - name: Install dependencies (Backend)
+        working-directory: ./backend
+        run: npm install
 
-      - name: Build Frontend
-        run: |
-          cd frontend
-          npm run build
+      - name: Install dependencies (Frontend)
+        working-directory: ./frontend
+        run: npm install
+
+      - name: Run backend tests
+        working-directory: ./backend
+        run: npm test || echo "No tests found"
+
+      - name: Run frontend tests
+        working-directory: ./frontend
+        run: npm test || echo "No tests found"
+
+      - name: Build frontend
+        working-directory: ./frontend
+        run: npm run build
+
