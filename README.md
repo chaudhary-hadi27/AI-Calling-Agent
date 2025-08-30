@@ -1,163 +1,242 @@
-# AI Calling Agent 📞🤖
+# 🤖 AI Calling Agent
 
-This project is a **Bulk AI Calling System** that enables businesses to automate calls using AI and manage leads via an integrated CRM.
+An AI-powered calling agent that can **handle real-time phone calls, understand speech, generate intelligent responses, and speak back to callers**. The system integrates **Telephony (Twilio/Asterisk), Speech-to-Text (Whisper), AI Brain (Groq/OpenAI), and Text-to-Speech (ElevenLabs)**. A **React + Tailwind dashboard** is included for monitoring, configuration, and analytics.
 
 ---
 
 ## 📂 Project Structure
 
 ```
-AI-Calling-Agent/
+ai-calling-agent/
 │
-├── backend/        # FastAPI backend (Core API + CRM bridge)
-│   ├── app/
-│   ├── requirements.txt
-│   ├── Dockerfile
-│   └── .env
-│
-├── ai_engine/      # AI microservice (STT, TTS, LLM, Call Flow)
-│   ├── services/
-│   ├── models/
-│   ├── requirements.txt
-│   ├── Dockerfile
-│   └── .env
-│
-├── crm/            # CRM microservice (Contacts, Campaigns, Logs)
-│   ├── app/
-│   ├── requirements.txt
-│   ├── Dockerfile
-│   └── .env
-│
-├── frontend/       # Next.js frontend (Dashboard + CRM UI)
+│── backend/                         # AI + telephony backend
 │   ├── src/
-│   ├── package.json
-│   ├── Dockerfile
-│   └── .env
+│   │   ├── telephony/                # Call handling (Twilio/Asterisk)
+│   │   ├── stt/                      # Speech to Text (Whisper, Google STT)
+│   │   ├── tts/                      # Text to Speech (ElevenLabs, Azure)
+│   │   ├── nlp/                      # AI brain (LLM + intents)
+│   │   ├── integrations/             # CRM, DB, APIs
+│   │   ├── core/                     # Orchestration & session flow
+│   │   ├── utils/                    # Logger & config
+│   │   └── app.py                    # Backend entry point (FastAPI/Flask)
+│   │
+│   ├── tests/                        # Unit & integration tests
+│   ├── requirements.txt              # Backend dependencies
+│   └── .env                          # Environment variables
 │
-├── database/       # PostgreSQL database + init scripts
-│   ├── init.sql
-│   └── Dockerfile
+│── frontend/                         # Dashboard + Control Panel
+│   ├── public/                       # Static assets (logos, icons)
+│   ├── src/
+│   │   ├── components/               # Reusable UI components
+│   │   ├── pages/                    # Pages (Dashboard, Calls, Settings)
+│   │   ├── services/                 # API calls to backend
+│   │   ├── hooks/                    # React hooks (custom)
+│   │   └── App.tsx                   # Main React App
+│   │
+│   ├── package.json                  # Frontend dependencies
+│   └── tailwind.config.js            # TailwindCSS config
 │
-├── infra/          # Infrastructure setup
-│   ├── docker-compose.yml
-│   └── Dockerfile(s)
+│── devops/                           # Deployment setup
+│   ├── Dockerfile.backend            # Backend container
+│   ├── Dockerfile.frontend           # Frontend container
+│   ├── docker-compose.yml            # Local dev orchestration
+│   ├── k8s/                          # Kubernetes configs
+│   │   ├── backend-deployment.yaml
+│   │   ├── frontend-deployment.yaml
+│   │   └── ingress.yaml
+│   └── github-actions.yml            # CI/CD pipeline
 │
-├── .github/        # GitHub Actions workflows
-│   └── workflows/
-│       └── ci-cd.yml
-│
-└── README.md       # Project documentation
+│── docs/                             # API & setup documentation
+│── README.md                         # Main documentation
+└── .gitignore
 ```
 
 ---
 
-## ⚙️ System Architecture
+## ⚙️ Backend Overview
+
+The backend is built with **FastAPI (recommended)** or Flask. It runs the AI call pipeline:
+
+1. **Telephony Layer** → Call connect/disconnect & audio streaming (Twilio/Asterisk).
+2. **STT (Speech-to-Text)** → Converts customer audio into text (Whisper/Deepgram/Google).
+3. **NLP (AI Brain)** → Processes text using LLM (Groq/OpenAI) or intent classifier.
+4. **TTS (Text-to-Speech)** → Converts AI response back to voice (ElevenLabs/Azure).
+5. **Integrations** → Fetches CRM records, database info, order status, etc.
+6. **Core Orchestration** → Session manager + call flow control.
+
+### Example Flow:
 
 ```
-Frontend (Next.js @3000)
-        ↓
-Backend (FastAPI @8000)
-   ├──> AI Engine (FastAPI @8500)
-   ├──> CRM (FastAPI @8600)
-   └──> PostgreSQL DB (@5432)
+Caller → Telephony → STT → NLP → TTS → Telephony → Caller
+                                │
+                                └──> CRM / Database / APIs
 ```
-
-* **Frontend (Next.js)** → User dashboard for campaigns & CRM
-* **Backend (FastAPI)** → Bridge between frontend, AI Engine & CRM
-* **AI Engine (FastAPI)** → Speech-to-Text, Text-to-Speech, LLM, Call Flow logic
-* **CRM (FastAPI)** → Contacts, Campaigns, Call Logs
-* **Database (PostgreSQL)** → Central storage for CRM + AI logs
 
 ---
 
-## 🚀 Quick Start
+## 🎨 Frontend Overview
 
-### 1. Clone the repository
+The frontend is built with **React + Tailwind** and provides a dashboard for admins/operators.
+
+### Features:
+
+* 🔴 **Live Call Monitoring** → See live transcripts & status.
+* 📜 **Call Logs** → Review past call history & transcripts.
+* ⚙️ **Agent Settings** → Configure AI personality, voice, and rules.
+* 📊 **Analytics** → KPIs (call volume, average handling time, agent performance).
+
+### Tech Stack:
+
+* React (with TypeScript recommended)
+* TailwindCSS for styling
+* Axios/Fetch for backend API calls
+* WebSockets for live updates (optional)
+
+---
+
+## 🚀 DevOps & Deployment
+
+### Local Development
+
+1. Clone repository:
+
+   ```bash
+   git clone https://github.com/your-org/ai-calling-agent.git
+   cd ai-calling-agent
+   ```
+
+2. Setup backend:
+
+   ```bash
+   cd backend
+   python -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
+   cp .env.example .env  # Add Twilio, Groq, ElevenLabs keys
+   uvicorn src.app:app --reload
+   ```
+
+3. Setup frontend:
+
+   ```bash
+   cd frontend
+   npm install
+   npm start
+   ```
+
+4. Run with Docker Compose:
+
+   ```bash
+   cd devops
+   docker-compose up --build
+   ```
+
+---
+
+### Production Deployment
+
+We use **Docker + Kubernetes** for production.
+
+* **Dockerfiles** → For backend & frontend builds.
+* **Kubernetes manifests** → Located in `devops/k8s/`.
+
+  * `backend-deployment.yaml` → Backend API deployment.
+  * `frontend-deployment.yaml` → Frontend React app deployment.
+  * `ingress.yaml` → Ingress controller (NGINX) for routing.
+* **CI/CD (GitHub Actions)** → Automates build & deployment.
+
+#### Deployment Steps:
 
 ```bash
-git clone https://github.com/yourname/AI-Calling-Agent.git
-cd AI-Calling-Agent/infra
+kubectl apply -f devops/k8s/backend-deployment.yaml
+kubectl apply -f devops/k8s/frontend-deployment.yaml
+kubectl apply -f devops/k8s/ingress.yaml
 ```
 
-### 2. Start all services with Docker
+---
+
+## 🔐 Environment Variables (.env)
+
+| Variable             | Description                 |
+| -------------------- | --------------------------- |
+| `TWILIO_ACCOUNT_SID` | Twilio Account SID          |
+| `TWILIO_AUTH_TOKEN`  | Twilio Auth Token           |
+| `GROQ_API_KEY`       | Groq/OpenAI API key for LLM |
+| `ELEVENLABS_API_KEY` | ElevenLabs TTS key          |
+| `DATABASE_URL`       | Database connection string  |
+| `CRM_API_KEY`        | CRM integration key         |
+
+---
+
+## 🧪 Testing
+
+Backend tests are in `/backend/tests/`. Run with:
 
 ```bash
-docker-compose up --build
-```
-
-### 3. Access services
-
-* **Frontend UI** → [http://localhost:3000](http://localhost:3000)
-* **Backend API** → [http://localhost:8000](http://localhost:8000)
-* **AI Engine** → [http://localhost:8500](http://localhost:8500)
-* **CRM Service** → [http://localhost:8600](http://localhost:8600)
-* **Database** → `localhost:5432`
-
----
-
-## 👩‍💻 Developer Workflow
-
-### 🔧 Adding Dependencies
-
-* **Backend** → `backend/requirements.txt`
-* **AI Engine** → `ai_engine/requirements.txt`
-* **CRM** → `crm/requirements.txt`
-* **Frontend** → `frontend/package.json`
-
-### 🌍 Environment Variables
-
-* **Backend** → `backend/.env`
-* **AI Engine** → `ai_engine/.env`
-* **CRM** → `crm/.env`
-* **Frontend** → `frontend/.env`
-
-### 🖥 Run Locally (without Docker)
-
-```bash
-# Run backend
-cd backend
-uvicorn app.main:app --reload
-
-# Run AI Engine
-cd ai_engine
-uvicorn services.main:app --reload --port 8500
-
-# Run CRM
-cd crm
-uvicorn app.main:app --reload --port 8600
-
-# Run frontend
-cd frontend
-npm install
-npm start
+pytest backend/tests/
 ```
 
 ---
 
-## 🛠️ CI/CD (GitHub Actions)
+## 📊 Monitoring & Logging
 
-On every push, the pipeline will:
-
-1. Build backend, ai\_engine, crm & frontend
-2. Run backend & ai\_engine tests
-3. Build frontend assets
-
-Workflow file: `.github/workflows/ci-cd.yml`
+* **Backend logs** → Structured logging with `logger.py`.
+* **Monitoring** → Can integrate Prometheus + Grafana for metrics.
+* **Centralized logging** → ELK (Elasticsearch, Logstash, Kibana) recommended.
 
 ---
 
-## 📦 Tech Stack
+## 📌 Roadmap
 
-* **Frontend** → Next.js (TypeScript)
-* **Backend** → FastAPI (Python)
-* **AI Engine** → FastAPI (Python) with STT, TTS, LLM
-* **CRM** → FastAPI (Python, microservice for leads & campaigns)
-* **Database** → PostgreSQL
-* **Infra** → Docker + docker-compose
-* **CI/CD** → GitHub Actions
+* [ ] Add support for multiple telephony providers (Asterisk, Plivo).
+* [ ] Multi-language support (STT + TTS).
+* [ ] Add real-time WebSocket transcripts to dashboard.
+* [ ] Implement analytics dashboard with charts.
+* [ ] Integrate with more CRMs (Hubspot, Salesforce).
 
 ---
 
-## 🧑‍🤝‍🧑 Contributing
+## 🏗️ High-Level Architecture
 
-Pull requests are welcome. For major changes, please open an issue first to discuss what you’d like to change.
+```
+          ┌───────────┐
+Caller →  │ Telephony │  ←→ Twilio / Asterisk
+          └─────┬─────┘
+                │ Audio Stream
+                ▼
+        ┌─────────────┐
+        │   STT (AI)  │ ←→ Whisper / Google STT
+        └─────┬───────┘
+              │ Text
+              ▼
+        ┌─────────────┐
+        │   NLP (LLM) │ ←→ Groq / OpenAI / Rasa
+        └─────┬───────┘
+              │ Response
+              ▼
+        ┌─────────────┐
+        │   TTS (AI)  │ ←→ ElevenLabs / Azure TTS
+        └─────┬───────┘
+              │ Audio
+              ▼
+          ┌───────────┐
+Caller ←  │ Telephony │
+          └───────────┘
+```
+
+Dashboard connects to **Backend APIs** for monitoring, logs, and analytics.
+
+---
+
+## 🤝 Contribution Guidelines
+
+1. Fork the repo & create a feature branch.
+2. Add your changes in the right module (backend/frontend/devops).
+3. Write tests for new code.
+4. Submit a Pull Request.
+
+---
+
+## 📜 License
+
+This project is licensed under the **MIT License**.
