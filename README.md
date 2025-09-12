@@ -9,6 +9,13 @@ An AI-powered calling agent that can **handle real-time phone calls, understand 
 ```
 ai-calling-agent/
 │
+│── .github/                      
+│   ├── ISSUE_TEMPLATE/
+│   │   ├── bug_report.md       
+│   │   └── feature_request.md   
+│── ├── workflows/                         
+│   │   └── ci.yml                  
+│   │
 │── backend/                         # AI + telephony backend
 │   ├── src/
 │   │   ├── telephony/                # Call handling (Twilio/Asterisk)
