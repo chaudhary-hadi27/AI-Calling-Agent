@@ -119,7 +119,7 @@ The frontend is built with **React + Tailwind** and provides a dashboard for adm
    python -m venv venv
    source venv/bin/activate
    pip install -r requirements.txt
-   cp .env.example .env  # Add Twilio, Groq, ElevenLabs keys
+   cp .env.template.example .env.template  # Add Twilio, Groq, ElevenLabs keys
    uvicorn src.app:app --reload
    ```
 

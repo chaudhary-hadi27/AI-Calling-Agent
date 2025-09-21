@@ -27,7 +27,7 @@ pids
 *.pid.lock
 
 # Environment files
-.env
+backend/.env.template
 .env.local
 .env.development.local
 .env.test.local

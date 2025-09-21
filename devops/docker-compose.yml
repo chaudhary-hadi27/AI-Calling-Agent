@@ -1,0 +1,252 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: ai-calling-postgres
+    environment:
+      POSTGRES_DB: ai_calling_agent
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./devops/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ai_calling_agent"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ai-calling-network
+
+  # Redis for caching and sessions
+  redis:
+    image: redis:7-alpine
+    container_name: ai-calling-redis
+    command: redis-server --appendonly yes --requirepass redis_password
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - ai-calling-network
+
+  # Backend API Service
+  backend:
+    build:
+      context: .
+      dockerfile: devops/Dockerfile.backend
+    container_name: ai-calling-backend
+    environment:
+      # Database
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/ai_calling_agent
+      DATABASE_ECHO: "false"
+
+      # Redis
+      REDIS_URL: redis://:redis_password@redis:6379/0
+
+      # API Configuration
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      API_DEBUG: "true"
+      API_SECRET_KEY: dev-secret-key-change-in-production
+
+      # External APIs (set these in .env file)
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
+      TWILIO_PHONE_NUMBER: ${TWILIO_PHONE_NUMBER}
+      TWILIO_WEBHOOK_BASE_URL: ${TWILIO_WEBHOOK_BASE_URL:-http://localhost:8000}
+
+      # Environment
+      ENVIRONMENT: development
+      LOG_LEVEL: INFO
+      LOG_FORMAT: console
+
+      # Celery
+      CELERY_BROKER_URL: redis://:redis_password@redis:6379/0
+      CELERY_RESULT_BACKEND: redis://:redis_password@redis:6379/0
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - backend_logs:/app/logs
+      - backend_temp:/app/temp_audio
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - ai-calling-network
+
+  # Frontend Service
+  frontend:
+    build:
+      context: .
+      dockerfile: devops/Dockerfile.frontend
+      args:
+        REACT_APP_API_URL: http://localhost:8000
+        REACT_APP_ENVIRONMENT: development
+    container_name: ai-calling-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - ai-calling-network
+
+  # Celery Worker for background tasks
+  celery-worker:
+    build:
+      context: .
+      dockerfile: devops/Dockerfile.backend
+    container_name: ai-calling-celery-worker
+    command: ["celery", "-A", "src.app:app", "worker", "--loglevel=info"]
+    environment:
+      # Same environment as backend
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/ai_calling_agent
+      REDIS_URL: redis://:redis_password@redis:6379/0
+      CELERY_BROKER_URL: redis://:redis_password@redis:6379/0
+      CELERY_RESULT_BACKEND: redis://:redis_password@redis:6379/0
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
+      ENVIRONMENT: development
+      LOG_LEVEL: INFO
+    volumes:
+      - ./backend:/app
+      - backend_logs:/app/logs
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+    networks:
+      - ai-calling-network
+
+  # Celery Beat for scheduled tasks
+  celery-beat:
+    build:
+      context: .
+      dockerfile: devops/Dockerfile.backend
+    container_name: ai-calling-celery-beat
+    command: ["celery", "-A", "src.app:app", "beat", "--loglevel=info"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/ai_calling_agent
+      REDIS_URL: redis://:redis_password@redis:6379/0
+      CELERY_BROKER_URL: redis://:redis_password@redis:6379/0
+      CELERY_RESULT_BACKEND: redis://:redis_password@redis:6379/0
+      ENVIRONMENT: development
+      LOG_LEVEL: INFO
+    volumes:
+      - ./backend:/app
+      - celery_beat_data:/app/celerybeat-schedule
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+    networks:
+      - ai-calling-network
+
+  # Nginx Reverse Proxy (Optional, for production-like setup)
+  nginx:
+    image: nginx:alpine
+    container_name: ai-calling-nginx
+    volumes:
+      - ./devops/nginx-dev.conf:/etc/nginx/conf.d/default.conf
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+    networks:
+      - ai-calling-network
+
+  # Monitoring with Prometheus (Optional)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ai-calling-prometheus
+    volumes:
+      - ./devops/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    profiles:
+      - monitoring
+    networks:
+      - ai-calling-network
+
+  # Grafana for visualization (Optional)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ai-calling-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: grafana
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./devops/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+    ports:
+      - "3001:3000"
+    profiles:
+      - monitoring
+    depends_on:
+      - prometheus
+    networks:
+      - ai-calling-network
+
+# Named volumes for persistent data
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  backend_logs:
+    driver: local
+  backend_temp:
+    driver: local
+  celery_beat_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+# Network configuration
+networks:
+  ai-calling-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

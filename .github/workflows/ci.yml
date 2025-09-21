@@ -1,47 +1,511 @@
-name: CI/CD Pipeline
+name: AI Calling Agent CI/CD
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main, develop, staging ]
   pull_request:
-    branches:
-      - main
+    branches: [ main, develop ]
+  release:
+    types: [ published ]
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE_NAME: ai-calling-agent-backend
+  FRONTEND_IMAGE_NAME: ai-calling-agent-frontend
 
 jobs:
-  build:
+  # Code quality and security checks
+  code-quality:
     runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-    strategy:
-      matrix:
-        node-version: [18.x]
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install Python dependencies
+      run: |
+        cd backend
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install black isort flake8 mypy bandit safety
+
+    - name: Run Black (code formatting)
+      run: |
+        cd backend
+        black --check --diff src/ tests/
+
+    - name: Run isort (import sorting)
+      run: |
+        cd backend
+        isort --check-only --diff src/ tests/
+
+    - name: Run Flake8 (linting)
+      run: |
+        cd backend
+        flake8 src/ tests/ --max-line-length=100 --extend-ignore=E203,W503
+
+    - name: Run MyPy (type checking)
+      run: |
+        cd backend
+        mypy src/ --ignore-missing-imports
+
+    - name: Run Bandit (security analysis)
+      run: |
+        cd backend
+        bandit -r src/ -f json -o bandit-report.json
+        bandit -r src/
+
+    - name: Run Safety (dependency vulnerability check)
+      run: |
+        cd backend
+        safety check --json --output safety-report.json
+        safety check
+
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-reports
+        path: |
+          backend/bandit-report.json
+          backend/safety-report.json
+
+  # Backend tests
+  backend-tests:
+    runs-on: ubuntu-latest
+    needs: code-quality
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: test_ai_calling_agent
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: ${{ matrix.node-version }}
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
 
-      - name: Install dependencies (Backend)
-        working-directory: ./backend
-        run: npm install
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
 
-      - name: Install dependencies (Frontend)
-        working-directory: ./frontend
-        run: npm install
+    - name: Install dependencies
+      run: |
+        cd backend
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-asyncio pytest-cov
 
-      - name: Run backend tests
-        working-directory: ./backend
-        run: npm test || echo "No tests found"
+    - name: Run tests with coverage
+      env:
+        DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/test_ai_calling_agent
+        REDIS_URL: redis://localhost:6379/0
+        TESTING: true
+        OPENAI_API_KEY: test-key
+        TWILIO_ACCOUNT_SID: test-sid
+        TWILIO_AUTH_TOKEN: test-token
+      run: |
+        cd backend
+        pytest tests/ -v --cov=src --cov-report=xml --cov-report=html --cov-fail-under=70
 
-      - name: Run frontend tests
-        working-directory: ./frontend
-        run: npm test || echo "No tests found"
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./backend/coverage.xml
+        flags: backend
+        name: backend-coverage
 
-      - name: Build frontend
-        working-directory: ./frontend
-        run: npm run build
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results
+        path: |
+          backend/coverage.xml
+          backend/htmlcov/
 
+  # Frontend tests
+  frontend-tests:
+    runs-on: ubuntu-latest
+    needs: code-quality
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install dependencies
+      run: |
+        cd frontend
+        npm ci
+
+    - name: Run linting
+      run: |
+        cd frontend
+        npm run lint
+
+    - name: Run tests
+      run: |
+        cd frontend
+        npm run test:coverage
+
+    - name: Upload coverage
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./frontend/coverage/lcov.info
+        flags: frontend
+        name: frontend-coverage
+
+  # Build and push Docker images
+  build-images:
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests]
+    if: github.event_name != 'pull_request'
+
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      backend-image: ${{ steps.backend-meta.outputs.tags }}
+      frontend-image: ${{ steps.frontend-meta.outputs.tags }}
+      backend-digest: ${{ steps.backend-build.outputs.digest }}
+      frontend-digest: ${{ steps.frontend-build.outputs.digest }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    # Backend image
+    - name: Extract backend metadata
+      id: backend-meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.BACKEND_IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push backend image
+      id: backend-build
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./devops/Dockerfile.backend
+        push: true
+        tags: ${{ steps.backend-meta.outputs.tags }}
+        labels: ${{ steps.backend-meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
+
+    # Frontend image
+    - name: Extract frontend metadata
+      id: frontend-meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.FRONTEND_IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push frontend image
+      id: frontend-build
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./devops/Dockerfile.frontend
+        push: true
+        tags: ${{ steps.frontend-meta.outputs.tags }}
+        labels: ${{ steps.frontend-meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
+        build-args: |
+          REACT_APP_API_URL=${{ secrets.REACT_APP_API_URL }}
+          REACT_APP_ENVIRONMENT=production
+
+  # Security scanning
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: build-images
+    if: github.event_name != 'pull_request'
+
+    permissions:
+      security-events: write
+
+    steps:
+    - name: Run Trivy vulnerability scanner (Backend)
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ needs.build-images.outputs.backend-image }}
+        format: 'sarif'
+        output: 'backend-trivy-results.sarif'
+
+    - name: Upload Trivy scan results (Backend)
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: 'backend-trivy-results.sarif'
+        category: 'backend-container-scan'
+
+    - name: Run Trivy vulnerability scanner (Frontend)
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ needs.build-images.outputs.frontend-image }}
+        format: 'sarif'
+        output: 'frontend-trivy-results.sarif'
+
+    - name: Upload Trivy scan results (Frontend)
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: 'frontend-trivy-results.sarif'
+        category: 'frontend-container-scan'
+
+  # Deploy to staging
+  deploy-staging:
+    runs-on: ubuntu-latest
+    needs: [build-images, security-scan]
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'latest'
+
+    - name: Configure kubectl
+      run: |
+        echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > kubeconfig
+        export KUBECONFIG=kubeconfig
+
+    - name: Update deployment images
+      run: |
+        export KUBECONFIG=kubeconfig
+        
+        # Update backend deployment
+        kubectl set image deployment/ai-calling-backend \
+          backend=${{ needs.build-images.outputs.backend-image }} \
+          -n ai-calling-agent-staging
+        
+        # Update frontend deployment
+        kubectl set image deployment/ai-calling-frontend \
+          frontend=${{ needs.build-images.outputs.frontend-image }} \
+          -n ai-calling-agent-staging
+        
+        # Wait for rollout
+        kubectl rollout status deployment/ai-calling-backend -n ai-calling-agent-staging
+        kubectl rollout status deployment/ai-calling-frontend -n ai-calling-agent-staging
+
+    - name: Run smoke tests
+      run: |
+        # Wait for deployment to be ready
+        sleep 30
+        
+        # Test backend health
+        curl -f https://api-staging.your-domain.com/health
+        
+        # Test frontend
+        curl -f https://staging.your-domain.com/health
+
+  # Deploy to production
+  deploy-production:
+    runs-on: ubuntu-latest
+    needs: [build-images, security-scan]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+
+    - name: Configure kubectl
+      run: |
+        echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > kubeconfig
+        export KUBECONFIG=kubeconfig
+
+    - name: Deploy to production
+      run: |
+        export KUBECONFIG=kubeconfig
+        
+        # Blue-green deployment strategy
+        kubectl set image deployment/ai-calling-backend \
+          backend=${{ needs.build-images.outputs.backend-image }} \
+          -n ai-calling-agent
+        
+        kubectl set image deployment/ai-calling-frontend \
+          frontend=${{ needs.build-images.outputs.frontend-image }} \
+          -n ai-calling-agent
+        
+        # Wait for rollout
+        kubectl rollout status deployment/ai-calling-backend -n ai-calling-agent --timeout=600s
+        kubectl rollout status deployment/ai-calling-frontend -n ai-calling-agent --timeout=300s
+
+    - name: Run production health checks
+      run: |
+        sleep 60
+        
+        # Comprehensive health checks
+        curl -f https://api.your-domain.com/health
+        curl -f https://your-domain.com/health
+        
+        # Test critical endpoints
+        curl -f https://api.your-domain.com/api/v1/calls/ -X GET
+
+    - name: Notify deployment success
+      uses: 8398a7/action-slack@v3
+      if: success()
+      with:
+        status: success
+        text: '✅ AI Calling Agent successfully deployed to production'
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+    - name: Notify deployment failure
+      uses: 8398a7/action-slack@v3
+      if: failure()
+      with:
+        status: failure
+        text: '❌ AI Calling Agent deployment to production failed'
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  # Performance testing
+  performance-test:
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: github.ref == 'refs/heads/develop'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run load tests
+      run: |
+        # Install k6
+        sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+        echo "deb https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+        sudo apt-get update
+        sudo apt-get install k6
+        
+        # Run performance tests
+        k6 run tests/performance/load-test.js
+
+  # Database migration
+  database-migration:
+    runs-on: ubuntu-latest
+    needs: deploy-production
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        cd backend
+        pip install -r requirements.txt
+
+    - name: Run database migrations
+      env:
+        DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+      run: |
+        cd backend
+        python setup_database.py migrate
+
+  # Cleanup old images
+  cleanup:
+    runs-on: ubuntu-latest
+    needs: [deploy-production]
+    if: always()
+
+    steps:
+    - name: Delete old container images
+      uses: actions/delete-package-versions@v4
+      with:
+        package-name: ${{ env.BACKEND_IMAGE_NAME }}
+        package-type: 'container'
+        min-versions-to-keep: 10
+        delete-only-untagged-versions: true
+
+    - name: Delete old frontend images
+      uses: actions/delete-package-versions@v4
+      with:
+        package-name: ${{ env.FRONTEND_IMAGE_NAME }}
+        package-type: 'container'
+        min-versions-to-keep: 10
+        delete-only-untagged-versions: true

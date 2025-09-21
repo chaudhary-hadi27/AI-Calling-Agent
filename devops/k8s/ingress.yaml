@@ -1,0 +1,269 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ai-calling-agent
+  labels:
+    name: ai-calling-agent
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ai-calling-agent-ingress
+  namespace: ai-calling-agent
+  annotations:
+    # Nginx Ingress Controller annotations
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+
+    # Rate limiting
+    nginx.ingress.kubernetes.io/rate-limit-requests-per-minute: "60"
+    nginx.ingress.kubernetes.io/rate-limit-connections: "10"
+
+    # CORS
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://your-domain.com"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, OPTIONS, PUT, DELETE"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization"
+
+    # Security headers
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      add_header X-Frame-Options DENY;
+      add_header X-Content-Type-Options nosniff;
+      add_header X-XSS-Protection "1; mode=block";
+      add_header Referrer-Policy strict-origin-when-cross-origin;
+      add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    # WebSocket support
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+
+    # SSL/TLS
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-ciphers: "ECDHE-RSA-AES128-GCM-SHA256,ECDHE-RSA-AES256-GCM-SHA384,ECDHE-RSA-AES128-SHA256,ECDHE-RSA-AES128-SHA,ECDHE-RSA-AES256-SHA384,ECDHE-RSA-AES256-SHA,AES128-GCM-SHA256,AES256-GCM-SHA384,AES128-SHA256,AES128-SHA,AES256-SHA256,AES256-SHA"
+    nginx.ingress.kubernetes.io/ssl-protocols: "TLSv1.2 TLSv1.3"
+
+    # Request size limits
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+
+    # Load balancer
+    nginx.ingress.kubernetes.io/load-balance: "ewma"
+    nginx.ingress.kubernetes.io/upstream-hash-by: "$binary_remote_addr"
+spec:
+  tls:
+  - hosts:
+    - your-domain.com
+    - api.your-domain.com
+    - webhooks.your-domain.com
+    secretName: ai-calling-agent-tls
+  rules:
+  # Frontend application
+  - host: your-domain.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: ai-calling-frontend-service
+            port:
+              number: 80
+
+  # API backend
+  - host: api.your-domain.com
+    http:
+      paths:
+      # API routes
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: ai-calling-backend-service
+            port:
+              number: 8000
+      # Health check
+      - path: /health
+        pathType: Exact
+        backend:
+          service:
+            name: ai-calling-backend-service
+            port:
+              number: 8000
+      # Metrics endpoint
+      - path: /metrics
+        pathType: Exact
+        backend:
+          service:
+            name: ai-calling-backend-service
+            port:
+              number: 8000
+      # WebSocket connections
+      - path: /ws
+        pathType: Prefix
+        backend:
+          service:
+            name: ai-calling-backend-service
+            port:
+              number: 8000
+
+  # Webhook endpoint (separate subdomain for security)
+  - host: webhooks.your-domain.com
+    http:
+      paths:
+      - path: /webhooks
+        pathType: Prefix
+        backend:
+          service:
+            name: ai-calling-backend-service
+            port:
+              number: 8000
+
+---
+# Certificate for automatic SSL/TLS with Let's Encrypt
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ai-calling-agent-cert
+  namespace: ai-calling-agent
+spec:
+  secretName: ai-calling-agent-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  commonName: your-domain.com
+  dnsNames:
+  - your-domain.com
+  - api.your-domain.com
+  - webhooks.your-domain.com
+
+---
+# ClusterIssuer for Let's Encrypt (create this at cluster level)
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: your-email@your-domain.com  # Replace with your email
+    privateKeySecretRef:
+      name: letsencrypt-prod
+    solvers:
+    - http01:
+        ingress:
+          class: nginx
+
+---
+# Network policies for security
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ai-calling-agent-netpol
+  namespace: ai-calling-agent
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow ingress from nginx ingress controller
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+  # Allow inter-service communication
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ai-calling-agent
+  # Allow specific ports
+    ports:
+    - protocol: TCP
+      port: 8000
+    - protocol: TCP
+      port: 80
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+  # Allow external API calls (OpenAI, Twilio)
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 80
+  # Allow database connections
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: database
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow Redis connections
+  - to:
+    - namespateSelector:
+        matchLabels:
+          name: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+
+---
+# Service Monitor for Prometheus (if using Prometheus Operator)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ai-calling-agent-metrics
+  namespace: ai-calling-agent
+  labels:
+    app: ai-calling-agent
+spec:
+  selector:
+    matchLabels:
+      app: ai-calling-backend
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+
+---
+# Pod Disruption Budget for high availability
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ai-calling-backend-pdb
+  namespace: ai-calling-agent
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: ai-calling-backend
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ai-calling-frontend-pdb
+  namespace: ai-calling-agent
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: ai-calling-frontend
+
+---
+# Priority Class for important pods
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: ai-calling-agent-priority
+value: 1000
+globalDefault: false
+description: "Priority class for AI Calling Agent components"
