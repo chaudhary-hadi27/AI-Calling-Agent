@@ -1,50 +1,50 @@
-@import 'tailwindcss/base';
-@import 'tailwindcss/components';
-@import 'tailwindcss/utilities';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* Custom CSS Variables for Theme */
 :root {
-  --color-primary: theme('colors.blue.600');
-  --color-secondary: theme('colors.emerald.500');
-  --color-accent: theme('colors.amber.500');
-  --color-success: theme('colors.green.500');
-  --color-warning: theme('colors.yellow.500');
-  --color-error: theme('colors.red.500');
+  --color-primary: #2563eb;
+  --color-secondary: #10b981;
+  --color-accent: #f59e0b;
+  --color-success: #22c55e;
+  --color-warning: #eab308;
+  --color-error: #ef4444;
 
   /* Background colors */
-  --bg-primary: theme('colors.white');
-  --bg-secondary: theme('colors.gray.50');
-  --bg-tertiary: theme('colors.gray.100');
+  --bg-primary: #ffffff;
+  --bg-secondary: #f9fafb;
+  --bg-tertiary: #f3f4f6;
 
   /* Text colors */
-  --text-primary: theme('colors.gray.900');
-  --text-secondary: theme('colors.gray.600');
-  --text-tertiary: theme('colors.gray.400');
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-tertiary: #9ca3af;
 
   /* Border colors */
-  --border-primary: theme('colors.gray.200');
-  --border-secondary: theme('colors.gray.300');
+  --border-primary: #e5e7eb;
+  --border-secondary: #d1d5db;
 }
 
 /* Dark theme variables */
 .dark {
-  --color-primary: theme('colors.blue.500');
-  --color-secondary: theme('colors.emerald.400');
-  --color-accent: theme('colors.amber.400');
+  --color-primary: #3b82f6;
+  --color-secondary: #34d399;
+  --color-accent: #fbbf24;
 
   /* Background colors */
-  --bg-primary: theme('colors.gray.900');
-  --bg-secondary: theme('colors.gray.800');
-  --bg-tertiary: theme('colors.gray.700');
+  --bg-primary: #111827;
+  --bg-secondary: #1f2937;
+  --bg-tertiary: #374151;
 
   /* Text colors */
-  --text-primary: theme('colors.gray.100');
-  --text-secondary: theme('colors.gray.300');
-  --text-tertiary: theme('colors.gray.500');
+  --text-primary: #f3f4f6;
+  --text-secondary: #d1d5db;
+  --text-tertiary: #6b7280;
 
   /* Border colors */
-  --border-primary: theme('colors.gray.700');
-  --border-secondary: theme('colors.gray.600');
+  --border-primary: #374151;
+  --border-secondary: #4b5563;
 }
 
 /* Base styles */
@@ -107,10 +107,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Custom component styles */
 @layer components {
-  /* Loading spinner */
-  .loading-spinner {
-    @apply inline-block animate-spin rounded-full border-2 border-solid border-current border-r-transparent motion-reduce:animate-[spin_1.5s_linear_infinite];
-  }
+  /* Loading spinner - handled by component classes */
 
   /* Button base styles */
   .btn-base {
@@ -288,13 +285,13 @@ h1, h2, h3, h4, h5, h6 {
 /* High contrast mode support */
 @media (prefers-contrast: high) {
   :root {
-    --border-primary: theme('colors.gray.900');
-    --border-secondary: theme('colors.gray.800');
+    --border-primary: #111827;
+    --border-secondary: #1f2937;
   }
 
   .dark {
-    --border-primary: theme('colors.gray.100');
-    --border-secondary: theme('colors.gray.200');
+    --border-primary: #f3f4f6;
+    --border-secondary: #e5e7eb;
   }
 }
 
