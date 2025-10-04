@@ -34,14 +34,14 @@ ai-calling-agent/
 │── frontend/                         # Dashboard + Control Panel
 │   ├── public/                       # Static assets (logos, icons)
 │   ├── src/
-│   │   ├── components/               # Reusable UI components
-│   │   ├── pages/                    # Pages (Dashboard, Calls, Settings)
-│   │   ├── services/                 # API calls to backend
-│   │   ├── hooks/                    # React hooks (custom)
-│   │   └── App.tsx                   # Main React App
+│   │   ├── app/               # Nextjs Frontend
+│   │   ├── components/                   
+│   │   ├── lib/  
+│   │   ├── styles/             
+│   │   ├── types/                
 │   │
-│   ├── package.json                  # Frontend dependencies
-│   └── tailwind.config.js            # TailwindCSS config
+│   ├── package.json               
+│   └── postcss.config.mjs
 │
 │── devops/                           # Deployment setup
 │   ├── Dockerfile.backend            # Backend container
