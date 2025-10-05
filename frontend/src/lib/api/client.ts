@@ -8,13 +8,22 @@ const apiClient = axios.create({
   },
 });
 
-// Request interceptor
+// Request interceptor - Add auth token to requests
 apiClient.interceptors.request.use(
   (config) => {
     if (typeof window !== "undefined") {
-      const token = localStorage.getItem("token");
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
+      // Try to get token from localStorage (Zustand persist)
+      const authStorage = localStorage.getItem("auth-storage");
+      if (authStorage) {
+        try {
+          const { state } = JSON.parse(authStorage);
+          const token = state?.token;
+          if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+          }
+        } catch (error) {
+          console.error("Error parsing auth storage:", error);
+        }
       }
     }
     return config;
@@ -24,16 +33,23 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response interceptor
+// Response interceptor - Handle errors and token refresh
 apiClient.interceptors.response.use(
   (response) => response.data,
   (error) => {
+    // Handle 401 Unauthorized
     if (error.response?.status === 401) {
       if (typeof window !== "undefined") {
-        localStorage.removeItem("token");
+        // Clear auth storage
+        localStorage.removeItem("auth-storage");
+        // Clear cookie
+        document.cookie = "auth-token=; path=/; max-age=0";
+        // Redirect to login
         window.location.href = "/login";
       }
     }
+
+    // Handle other errors
     return Promise.reject(error);
   }
 );

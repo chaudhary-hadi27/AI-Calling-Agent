@@ -6,8 +6,10 @@ export const API_ENDPOINTS = {
     LOGOUT: "/api/auth/logout",
     REFRESH: "/api/auth/refresh",
     ME: "/api/auth/me",
+    FORGOT_PASSWORD: "/api/auth/forgot-password",
+    RESET_PASSWORD: "/api/auth/reset-password",
   },
-  
+
   // Calls
   CALLS: {
     LIST: "/api/calls",
@@ -16,7 +18,7 @@ export const API_ENDPOINTS = {
     TERMINATE: (id: string) => `/api/calls/${id}/terminate`,
     TRANSCRIPT: (id: string) => `/api/calls/${id}/transcript`,
   },
-  
+
   // Agents
   AGENTS: {
     LIST: "/api/agents",
@@ -25,14 +27,14 @@ export const API_ENDPOINTS = {
     UPDATE: (id: string) => `/api/agents/${id}`,
     DELETE: (id: string) => `/api/agents/${id}`,
   },
-  
+
   // Analytics
   ANALYTICS: {
     OVERVIEW: "/api/analytics/overview",
     CALLS: "/api/analytics/calls",
     PERFORMANCE: "/api/analytics/performance",
   },
-  
+
   // Campaigns
   CAMPAIGNS: {
     LIST: "/api/campaigns",
