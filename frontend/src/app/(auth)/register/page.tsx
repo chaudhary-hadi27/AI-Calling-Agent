@@ -1,6 +1,7 @@
 "use client";
 
 import RegisterForm from "@/components/auth/RegisterForm";
+import Link from "next/link";
 
 export default function RegisterPage() {
   return (
@@ -29,7 +30,7 @@ export default function RegisterPage() {
             Create Account
           </h1>
           <p className="text-[var(--color-text-secondary)] text-lg">
-            Join us to start managing AI-powered calls
+            Join Smartkode to start managing AI-powered calls
           </p>
         </div>
 
@@ -41,19 +42,21 @@ export default function RegisterPage() {
         {/* Footer */}
         <p className="text-center text-[var(--color-text-tertiary)] text-sm mt-8">
           By creating an account, you agree to our{" "}
-          <a
-            href="#"
-            className="text-[var(--color-primary-500)] hover:text-[var(--color-primary-400)] transition-colors"
+          <Link
+            href="/terms"
+            target="_blank"
+            className="text-[var(--color-primary-500)] hover:text-[var(--color-primary-400)] transition-colors underline"
           >
             Terms of Service
-          </a>{" "}
+          </Link>{" "}
           and{" "}
-          <a
-            href="#"
-            className="text-[var(--color-primary-500)] hover:text-[var(--color-primary-400)] transition-colors"
+          <Link
+            href="/privacy"
+            target="_blank"
+            className="text-[var(--color-primary-500)] hover:text-[var(--color-primary-400)] transition-colors underline"
           >
             Privacy Policy
-          </a>
+          </Link>
         </p>
       </div>
     </div>

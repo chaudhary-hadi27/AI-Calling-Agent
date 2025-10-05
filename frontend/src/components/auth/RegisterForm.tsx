@@ -36,7 +36,6 @@ const RegisterForm: React.FC = () => {
     e.preventDefault();
     setErrors({ name: "", email: "", otp: "", password: "", confirmPassword: "", agreeToTerms: "" });
 
-    // Validation
     if (!formData.name.trim()) {
       setErrors((prev) => ({ ...prev, name: "Name is required" }));
       return;
@@ -56,12 +55,7 @@ const RegisterForm: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // TODO: API call to send OTP
-      // await authService.sendOTP(formData.email);
-
-      // Simulate API call
       await new Promise((resolve) => setTimeout(resolve, 1500));
-
       toast.success(`Verification code sent to ${formData.email}`);
       setCurrentStep("otp");
     } catch (error: any) {
@@ -84,12 +78,7 @@ const RegisterForm: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // TODO: API call to verify OTP
-      // await authService.verifyOTP(formData.email, otpValue);
-
-      // Simulate API call
       await new Promise((resolve) => setTimeout(resolve, 1500));
-
       toast.success("Email verified successfully!");
       setCurrentStep("password");
     } catch (error: any) {
@@ -106,7 +95,6 @@ const RegisterForm: React.FC = () => {
     e.preventDefault();
     setErrors({ name: "", email: "", otp: "", password: "", confirmPassword: "", agreeToTerms: "" });
 
-    // Validation
     if (!formData.password) {
       setErrors((prev) => ({ ...prev, password: "Password is required" }));
       return;
@@ -126,16 +114,7 @@ const RegisterForm: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // TODO: API call to complete registration
-      // await authService.completeRegistration({
-      //   name: formData.name,
-      //   email: formData.email,
-      //   password: formData.password
-      // });
-
-      // Simulate API call
       await new Promise((resolve) => setTimeout(resolve, 1500));
-
       toast.success("Account created successfully!");
       setCurrentStep("complete");
     } catch (error: any) {
@@ -150,7 +129,6 @@ const RegisterForm: React.FC = () => {
   const handleResendOTP = async () => {
     setIsLoading(true);
     try {
-      // TODO: API call to resend OTP
       await new Promise((resolve) => setTimeout(resolve, 1000));
       toast.success("Verification code resent!");
     } catch (error) {
@@ -169,7 +147,6 @@ const RegisterForm: React.FC = () => {
     newOTP[index] = value;
     setFormData((prev) => ({ ...prev, otp: newOTP }));
 
-    // Auto-focus next input
     if (value && index < 5) {
       const nextInput = document.getElementById(`otp-${index + 1}`);
       nextInput?.focus();
@@ -215,7 +192,7 @@ const RegisterForm: React.FC = () => {
               value={formData.email}
               onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
               error={errors.email}
-              placeholder="Enter your work email"
+              placeholder="name@smartkode.io"
               disabled={isLoading}
               required
               fullWidth
@@ -368,11 +345,11 @@ const RegisterForm: React.FC = () => {
                 />
                 <span className="ml-3 text-sm text-[var(--color-text-secondary)] group-hover:text-[var(--color-text-primary)] transition-colors">
                   I agree to the{" "}
-                  <Link href="/terms" target="_blank" className="text-[var(--color-primary-500)] hover:text-[var(--color-primary-400)] font-medium">
+                  <Link href="/terms" target="_blank" className="text-[var(--color-primary-500)] hover:text-[var(--color-primary-400)] font-medium underline">
                     Terms of Service
                   </Link>{" "}
                   and{" "}
-                  <Link href="/privacy" target="_blank" className="text-[var(--color-primary-500)] hover:text-[var(--color-primary-400)] font-medium">
+                  <Link href="/privacy" target="_blank" className="text-[var(--color-primary-500)] hover:text-[var(--color-primary-400)] font-medium underline">
                     Privacy Policy
                   </Link>
                 </span>
