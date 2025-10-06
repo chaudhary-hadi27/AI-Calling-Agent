@@ -244,10 +244,10 @@ export default function TermsPage() {
                 <p>
                   <span className="font-medium text-[var(--color-text-primary)]">Email:</span>{" "}
                   <a
-                    href="mailto:legal@smartkode.io"
+                    href="mailto:support@smartkode.io"
                     className="text-[var(--color-primary-500)] hover:text-[var(--color-primary-400)]"
                   >
-                    legal@smartkode.io
+                    support@smartkode.io
                   </a>
                 </p>
                 <p>

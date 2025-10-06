@@ -326,19 +326,19 @@ export default function PrivacyPage() {
                 <p>
                   <span className="font-medium text-[var(--color-text-primary)]">Email:</span>{" "}
                   <a
-                    href="mailto:privacy@smartkode.io"
+                    href="mailto:info@smartkode.io"
                     className="text-[var(--color-primary-500)] hover:text-[var(--color-primary-400)]"
                   >
-                    privacy@smartkode.io
+                    info@smartkode.io
                   </a>
                 </p>
                 <p>
                   <span className="font-medium text-[var(--color-text-primary)]">Data Protection Officer:</span>{" "}
                   <a
-                    href="mailto:dpo@smartkode.io"
+                    href="mailto:support@smartkode.io"
                     className="text-[var(--color-primary-500)] hover:text-[var(--color-primary-400)]"
                   >
-                    dpo@smartkode.io
+                    support@smartkode.io
                   </a>
                 </p>
                 <p>
