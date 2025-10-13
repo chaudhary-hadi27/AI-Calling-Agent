@@ -19,9 +19,21 @@ class DeviceFingerprintGenerator {
   private cachedFingerprint: string | null = null;
 
   /**
+   * Check if we're in a browser environment
+   */
+  private isBrowser(): boolean {
+    return typeof window !== 'undefined' && typeof crypto !== 'undefined' && typeof crypto.subtle !== 'undefined';
+  }
+
+  /**
    * Generate unique device fingerprint
    */
   async generate(): Promise<string> {
+    if (!this.isBrowser()) {
+      // Return a fallback fingerprint for SSR
+      return 'ssr-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+    }
+
     if (this.cachedFingerprint) {
       return this.cachedFingerprint;
     }
@@ -37,6 +49,23 @@ class DeviceFingerprintGenerator {
    * Get detailed device information
    */
   async getDeviceInfo(): Promise<DeviceInfo> {
+    if (!this.isBrowser()) {
+      // Return default info for SSR
+      return {
+        fingerprint: 'ssr-fallback',
+        browser: 'Unknown',
+        os: 'Unknown',
+        device: 'desktop',
+        screenResolution: '0x0',
+        timezone: 'UTC',
+        language: 'en',
+        platform: 'Unknown',
+        hardwareConcurrency: 0,
+        colorDepth: 24,
+        touchSupport: false,
+      };
+    }
+
     const fingerprint = await this.generate();
     const components = await this.getComponents();
 
@@ -62,6 +91,8 @@ class DeviceFingerprintGenerator {
    * Check if device is trusted
    */
   async isTrusted(userId: string): Promise<boolean> {
+    if (!this.isBrowser()) return false;
+
     const fingerprint = await this.generate();
     const key = `trusted_device_${userId}_${fingerprint}`;
 
@@ -72,6 +103,8 @@ class DeviceFingerprintGenerator {
    * Mark device as trusted
    */
   async trustDevice(userId: string, expiryDays: number = 30): Promise<void> {
+    if (!this.isBrowser()) return;
+
     const fingerprint = await this.generate();
     const key = `trusted_device_${userId}_${fingerprint}`;
     const expiry = Date.now() + expiryDays * 24 * 60 * 60 * 1000;
@@ -84,6 +117,8 @@ class DeviceFingerprintGenerator {
    * Remove device trust
    */
   async untrustDevice(userId: string): Promise<void> {
+    if (!this.isBrowser()) return;
+
     const fingerprint = await this.generate();
     const key = `trusted_device_${userId}_${fingerprint}`;
 
@@ -95,6 +130,8 @@ class DeviceFingerprintGenerator {
    * Get all fingerprint components
    */
   private async getComponents(): Promise<Record<string, any>> {
+    if (!this.isBrowser()) return {};
+
     return {
       userAgent: navigator.userAgent,
       language: navigator.language,
@@ -124,6 +161,8 @@ class DeviceFingerprintGenerator {
   }
 
   private getBrowser(): string {
+    if (!this.isBrowser()) return 'Unknown';
+
     const ua = navigator.userAgent;
     if (ua.includes('Firefox')) return 'Firefox';
     if (ua.includes('Chrome')) return 'Chrome';
@@ -134,6 +173,8 @@ class DeviceFingerprintGenerator {
   }
 
   private getOS(): string {
+    if (!this.isBrowser()) return 'Unknown';
+
     const ua = navigator.userAgent;
     if (ua.includes('Win')) return 'Windows';
     if (ua.includes('Mac')) return 'macOS';
@@ -144,6 +185,8 @@ class DeviceFingerprintGenerator {
   }
 
   private getDevice(): string {
+    if (!this.isBrowser()) return 'desktop';
+
     const ua = navigator.userAgent;
     if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) {
       return 'tablet';
@@ -155,6 +198,7 @@ class DeviceFingerprintGenerator {
   }
 
   private hasSessionStorage(): boolean {
+    if (!this.isBrowser()) return false;
     try {
       return !!window.sessionStorage;
     } catch {
@@ -163,6 +207,7 @@ class DeviceFingerprintGenerator {
   }
 
   private hasLocalStorage(): boolean {
+    if (!this.isBrowser()) return false;
     try {
       return !!window.localStorage;
     } catch {
@@ -171,14 +216,18 @@ class DeviceFingerprintGenerator {
   }
 
   private hasIndexedDB(): boolean {
+    if (!this.isBrowser()) return false;
     return !!window.indexedDB;
   }
 
   private hasOpenDatabase(): boolean {
+    if (!this.isBrowser()) return false;
     return !!(window as any).openDatabase;
   }
 
   private getPlugins(): string[] {
+    if (!this.isBrowser()) return [];
+
     const plugins: string[] = [];
     for (let i = 0; i < navigator.plugins.length; i++) {
       plugins.push(navigator.plugins[i].name);
@@ -187,10 +236,13 @@ class DeviceFingerprintGenerator {
   }
 
   private getTouchSupport(): boolean {
+    if (!this.isBrowser()) return false;
     return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
   }
 
   private async getCanvasFingerprint(): Promise<string> {
+    if (!this.isBrowser()) return '';
+
     try {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
@@ -214,6 +266,8 @@ class DeviceFingerprintGenerator {
   }
 
   private getWebGLInfo(): { vendor?: string; renderer?: string } | undefined {
+    if (!this.isBrowser()) return undefined;
+
     try {
       const canvas = document.createElement('canvas');
       const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
@@ -232,7 +286,8 @@ class DeviceFingerprintGenerator {
   }
 
   private async getFonts(): Promise<string[]> {
-    // Common fonts to check
+    if (!this.isBrowser()) return [];
+
     const baseFonts = ['monospace', 'sans-serif', 'serif'];
     const fontList = [
       'Arial', 'Verdana', 'Times New Roman', 'Courier New', 'Georgia',
@@ -251,6 +306,8 @@ class DeviceFingerprintGenerator {
   }
 
   private async isFontAvailable(font: string, baseFonts: string[]): Promise<boolean> {
+    if (!this.isBrowser()) return false;
+
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     if (!ctx) return false;
@@ -275,6 +332,8 @@ class DeviceFingerprintGenerator {
   }
 
   private async getAudioFingerprint(): Promise<number> {
+    if (!this.isBrowser()) return 0;
+
     try {
       const context = new (window.AudioContext || (window as any).webkitAudioContext)();
       const oscillator = context.createOscillator();
@@ -310,14 +369,37 @@ class DeviceFingerprintGenerator {
   }
 
   /**
-   * Hash string using SubtleCrypto
+   * Hash string using SubtleCrypto (browser only)
    */
   private async hash(input: string): Promise<string> {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(input);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    if (!this.isBrowser()) {
+      // Fallback hash for SSR (simple string hash)
+      let hash = 0;
+      for (let i = 0; i < input.length; i++) {
+        const char = input.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+      }
+      return Math.abs(hash).toString(16);
+    }
+
+    try {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(input);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch (error) {
+      console.error('Hash error:', error);
+      // Fallback to simple hash
+      let hash = 0;
+      for (let i = 0; i < input.length; i++) {
+        const char = input.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+      }
+      return Math.abs(hash).toString(16);
+    }
   }
 }
 

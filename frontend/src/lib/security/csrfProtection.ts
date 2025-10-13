@@ -210,47 +210,6 @@ export async function rotateCSRFToken(): Promise<string> {
 }
 
 /**
- * React hook for CSRF token
- * NOTE: Move this to a separate hooks file if needed
- */
-export function useCSRFToken() {
-  const [token, setToken] = React.useState<string>('');
-  const [isLoading, setIsLoading] = React.useState(true);
-
-  React.useEffect(() => {
-    const fetchToken = async () => {
-      try {
-        const newToken = await getCSRFToken();
-        setToken(newToken);
-      } catch (error) {
-        console.error('Failed to fetch CSRF token:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchToken();
-
-    // Refresh token every 30 minutes
-    const interval = setInterval(fetchToken, 30 * 60 * 1000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const refreshToken = async () => {
-    setIsLoading(true);
-    try {
-      const newToken = await rotateCSRFToken();
-      setToken(newToken);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  return { token, isLoading, refreshToken };
-}
-
-/**
  * Axios interceptor helper
  * Add this to your axios instance
  */
