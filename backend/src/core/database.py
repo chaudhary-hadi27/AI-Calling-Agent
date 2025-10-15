@@ -54,6 +54,54 @@ class CallDirection(str, enum.Enum):
     OUTBOUND = "outbound"
 
 
+# ============================================
+# USER MODELS (NEW)
+# ============================================
+
+class UserRole(str, enum.Enum):
+    """User role enumeration."""
+    ADMIN = "admin"
+    USER = "user"
+    VIEWER = "viewer"
+
+
+class User(Base):
+    """User model for authentication."""
+
+    __tablename__ = "users"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    username: Mapped[Optional[str]] = mapped_column(String(100), unique=True)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    full_name: Mapped[Optional[str]] = mapped_column(String(255))
+
+    # Profile
+    role: Mapped[UserRole] = mapped_column(Enum(UserRole), default=UserRole.USER)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # MFA
+    mfa_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    mfa_secret: Mapped[Optional[str]] = mapped_column(String(255))
+    backup_codes: Mapped[Optional[list]] = mapped_column(JSON, default=[])
+
+    # Metadata
+    metadata: Mapped[Optional[dict]] = mapped_column(JSON, default={})
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_login: Mapped[Optional[datetime]] = mapped_column(DateTime)
+
+    # Relationships
+    campaigns: Mapped[list["Campaign"]] = relationship("Campaign", back_populates="created_by")
+
+
+# ============================================
+# EXISTING MODELS (KEEP)
+# ============================================
+
 class Contact(Base):
     """Contact model for storing phone numbers and metadata."""
 
@@ -85,8 +133,11 @@ class Campaign(Base):
     description: Mapped[Optional[str]] = mapped_column(Text)
     status: Mapped[CampaignStatus] = mapped_column(Enum(CampaignStatus), default=CampaignStatus.DRAFT)
 
+    # Foreign key
+    created_by_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+
     # Campaign settings
-    script: Mapped[Optional[str]] = mapped_column(Text)  # AI agent script/prompt
+    script: Mapped[Optional[str]] = mapped_column(Text)
     max_concurrent_calls: Mapped[int] = mapped_column(Integer, default=5)
     retry_attempts: Mapped[int] = mapped_column(Integer, default=3)
     retry_delay_minutes: Mapped[int] = mapped_column(Integer, default=60)
@@ -107,6 +158,7 @@ class Campaign(Base):
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
 
     # Relationships
+    created_by: Mapped["User"] = relationship("User", back_populates="campaigns")
     calls: Mapped[list["Call"]] = relationship("Call", back_populates="campaign")
     campaign_contacts: Mapped[list["CampaignContact"]] = relationship("CampaignContact", back_populates="campaign")
 
@@ -144,7 +196,7 @@ class Call(Base):
 
     # Twilio identifiers
     call_sid: Mapped[Optional[str]] = mapped_column(String(50), unique=True, index=True)
-    parent_call_sid: Mapped[Optional[str]] = mapped_column(String(50))  # For call transfers
+    parent_call_sid: Mapped[Optional[str]] = mapped_column(String(50))
 
     # Call details
     direction: Mapped[CallDirection] = mapped_column(Enum(CallDirection), nullable=False)
@@ -160,17 +212,17 @@ class Call(Base):
     duration_seconds: Mapped[Optional[int]] = mapped_column(Integer)
     answered_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
-    cost: Mapped[Optional[float]] = mapped_column(Float)  # Call cost from provider
+    cost: Mapped[Optional[float]] = mapped_column(Float)
 
     # AI conversation data
     transcript: Mapped[Optional[str]] = mapped_column(Text)
     conversation_summary: Mapped[Optional[str]] = mapped_column(Text)
-    sentiment_score: Mapped[Optional[float]] = mapped_column(Float)  # -1.0 to 1.0
+    sentiment_score: Mapped[Optional[float]] = mapped_column(Float)
     intent_detected: Mapped[Optional[str]] = mapped_column(String(100))
 
     # Technical details
     error_message: Mapped[Optional[str]] = mapped_column(Text)
-    provider_data: Mapped[Optional[dict]] = mapped_column(JSON)  # Raw provider response
+    provider_data: Mapped[Optional[dict]] = mapped_column(JSON)
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -192,18 +244,18 @@ class CallLog(Base):
     call_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("calls.id"), nullable=False)
 
     # Log entry details
-    sequence: Mapped[int] = mapped_column(Integer, nullable=False)  # Order of events
-    event_type: Mapped[str] = mapped_column(String(50), nullable=False)  # speech, response, action, etc.
-    direction: Mapped[str] = mapped_column(String(10), nullable=False)  # inbound, outbound
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    event_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    direction: Mapped[str] = mapped_column(String(10), nullable=False)
 
     # Content
-    content: Mapped[Optional[str]] = mapped_column(Text)  # Spoken text or action description
-    raw_audio_url: Mapped[Optional[str]] = mapped_column(String(500))  # Link to audio file
-    confidence_score: Mapped[Optional[float]] = mapped_column(Float)  # STT confidence
+    content: Mapped[Optional[str]] = mapped_column(Text)
+    raw_audio_url: Mapped[Optional[str]] = mapped_column(String(500))
+    confidence_score: Mapped[Optional[float]] = mapped_column(Float)
 
     # Timing
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    duration_ms: Mapped[Optional[int]] = mapped_column(Integer)  # Duration of speech/pause
+    duration_ms: Mapped[Optional[int]] = mapped_column(Integer)
 
     # Metadata
     metadata: Mapped[Optional[dict]] = mapped_column(JSON)
@@ -212,7 +264,10 @@ class CallLog(Base):
     call: Mapped["Call"] = relationship("Call", back_populates="call_logs")
 
 
-# Database connection and session management
+# ============================================
+# DATABASE MANAGER
+# ============================================
+
 class DatabaseManager:
     """Database connection and session manager."""
 

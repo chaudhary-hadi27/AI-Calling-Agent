@@ -3,6 +3,7 @@
 import asyncio
 from contextlib import asynccontextmanager
 from typing import Dict, Any
+from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,6 +14,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from .core.database import db_manager
 from .core.session_manager import session_manager
+from .routes import auth_router, health_router
 from .api.routes import call as call_routes
 from .api import webhooks
 from .utils.config import get_settings
@@ -98,7 +100,7 @@ app = FastAPI(
 # Add middlewares
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if settings.api.debug else ["https://yourdomain.com"],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -138,6 +140,9 @@ async def handle_app_exception(request: Request, exc: AICallingAgentException):
         "TTSError": 502,
         "NLPError": 502,
         "LLMError": 502,
+        "UserAlreadyExistsError": 409,
+        "UserNotFoundError": 404,
+        "InvalidCredentialsError": 401,
     }
 
     status_code = status_code_mapping.get(exc.code, 500)
@@ -202,12 +207,20 @@ async def handle_unexpected_exception(request: Request, exc: Exception):
 
 
 # Include routers
+# Health checks (no auth required)
+app.include_router(health_router)
+
+# Authentication routes (no auth required)
+app.include_router(auth_router)
+
+# Call management routes (auth required)
 app.include_router(
     call_routes.router,
     prefix="/api/v1/calls",
     tags=["calls"]
 )
 
+# Webhook routes (no auth required - Twilio webhooks)
 app.include_router(
     webhooks.router,
     prefix="/webhooks",
@@ -223,7 +236,8 @@ async def root():
         "name": settings.api.title,
         "version": settings.api.version,
         "status": "running",
-        "environment": settings.environment
+        "environment": settings.environment,
+        "timestamp": datetime.utcnow().isoformat()
     }
 
 
@@ -233,15 +247,18 @@ async def health_check():
     try:
         # Check database connection
         async with db_manager.get_session() as session:
-            await session.execute("SELECT 1")
+            from sqlalchemy import text
+            await session.execute(text("SELECT 1"))
             db_healthy = True
-    except Exception:
+    except Exception as e:
+        logger.warning("Database health check failed", error=str(e))
         db_healthy = False
 
     # Get active sessions count
     active_sessions = session_manager.get_active_sessions_count()
 
     # Import and check external services
+    services_status = {}
     try:
         from .stt.openai_stt import openai_stt
         from .tts.openai_tts import openai_tts
@@ -253,7 +270,8 @@ async def health_check():
             "tts": await openai_tts.health_check() if hasattr(openai_tts, 'health_check') else True,
             "nlp": await openai_nlp.health_check() if hasattr(openai_nlp, 'health_check') else True,
         }
-    except Exception:
+    except Exception as e:
+        logger.warning("Could not check external services", error=str(e))
         services_status = {"error": "Unable to check services"}
 
     overall_healthy = db_healthy and all(
@@ -262,11 +280,20 @@ async def health_check():
 
     return {
         "status": "healthy" if overall_healthy else "unhealthy",
-        "timestamp": "2024-01-01T00:00:00Z",  # You'd use datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
         "database": "healthy" if db_healthy else "unhealthy",
         "services": services_status,
         "active_sessions": active_sessions,
         "version": settings.api.version
+    }
+
+
+@app.get("/api/health")
+async def api_health_check():
+    """Simple API health check."""
+    return {
+        "status": "ok",
+        "timestamp": datetime.utcnow().isoformat()
     }
 
 
@@ -288,15 +315,15 @@ async def get_metrics():
             "active_sessions": active_sessions,
             "total_session_duration": total_duration,
             "sessions": sessions_info,
-            "uptime_seconds": 0,  # You'd calculate actual uptime
-            "memory_usage_mb": 0,  # You'd get actual memory usage
+            "timestamp": datetime.utcnow().isoformat(),
         }
 
     except Exception as e:
         logger.error("Error getting metrics", error=str(e))
         return {
             "error": "Unable to retrieve metrics",
-            "active_sessions": 0
+            "active_sessions": 0,
+            "timestamp": datetime.utcnow().isoformat(),
         }
 
 
@@ -323,10 +350,9 @@ if settings.api.debug:
                 "echo": settings.database.echo,
                 "pool_size": settings.database.pool_size,
             },
-            # Don't expose sensitive data like API keys
+            "cors_origins": settings.cors_origins,
             "external_apis": {
                 "openai_configured": bool(settings.external_apis.openai_api_key),
-                "elevenlabs_configured": bool(settings.external_apis.elevenlabs_api_key),
             }
         }
         return config_dict
