@@ -1,16 +1,16 @@
-/**
- * Enhanced useAuth Hook
- * Production-ready authentication with security features
- */
-import React from 'react'; //
+"use client";
+
 import { useAuthStore } from "@/lib/store/authStore";
 import { authService } from "@/lib/api/services/auth.service";
 import { useToast } from "./useToast";
 import { useRouter } from "next/navigation";
-import { useLoginRateLimit } from "./useRateLimit";
 import { useSecurityMonitor } from "./useSecurityMonitor";
-import { getDeviceFingerprint, trustCurrentDevice } from "@/lib/security/deviceFingerprint";
 import { validatePasswordEnterprise } from "@/lib/utils/validators";
+
+interface LoginOptions {
+  trustDevice?: boolean;
+  deviceFingerprint?: string;
+}
 
 export const useAuth = () => {
   const router = useRouter();
@@ -23,40 +23,37 @@ export const useAuth = () => {
     login: setLogin,
     logout: setLogout,
     setLoading,
+    updateUser,
   } = useAuthStore();
 
   const {
     logLoginAttempt,
     logLoginSuccess,
     logLoginFailure,
-    logSuspiciousActivity,
   } = useSecurityMonitor();
 
   /**
-   * Login with email and password
+   * Enhanced login with device trust
    */
   const login = async (
     email: string,
     password: string,
-    options?: {
-      trustDevice?: boolean;
-      mfaCode?: string;
-    }
+    options?: LoginOptions
   ) => {
     try {
       setLoading(true);
 
-      // Get device fingerprint
-      const deviceFingerprint = await getDeviceFingerprint();
-
       // Log attempt
       await logLoginAttempt(email, 'password');
 
-      // Call API
-      const response = await authService.login(email, password);
+      // Call API with device info
+      const response = await authService.login(email, password, {
+        deviceFingerprint: options?.deviceFingerprint,
+        trustDevice: options?.trustDevice,
+      });
 
       // Check if MFA is required
-      if (response.mfaRequired && !options?.mfaCode) {
+      if (response.mfaRequired && !response.token) {
         setLoading(false);
         return {
           requiresMFA: true,
@@ -67,16 +64,10 @@ export const useAuth = () => {
       // Store auth data
       setLogin(response.user, response.token);
 
-      // Trust device if requested
-      if (options?.trustDevice) {
-        await trustCurrentDevice(response.user.id);
-      }
-
       // Log success
       await logLoginSuccess(response.user.email, 'password');
 
-      toast.success("Welcome back!");
-      router.push("/dashboard");
+      toast.success(`Welcome back, ${response.user.name}!`);
 
       return { success: true };
     } catch (error: any) {
@@ -84,21 +75,7 @@ export const useAuth = () => {
       const reason = error?.response?.data?.message || 'Unknown error';
       await logLoginFailure(email, reason);
 
-      // Check for specific error types
-      if (error?.response?.status === 423) {
-        // Account locked
-        await logSuspiciousActivity('Account locked after multiple failed attempts', {
-          email,
-        });
-        toast.error("Account locked. Please try again later or reset your password.");
-      } else if (error?.response?.status === 429) {
-        // Rate limited
-        toast.error("Too many login attempts. Please try again later.");
-      } else {
-        const message = error?.response?.data?.message || "Login failed. Please try again.";
-        toast.error(message);
-      }
-
+      // Re-throw to be handled by component
       throw error;
     } finally {
       setLoading(false);
@@ -135,17 +112,11 @@ export const useAuth = () => {
         toast.warning('Password strength is medium. Consider using a stronger password.');
       }
 
-      // Get device fingerprint
-      const deviceFingerprint = await getDeviceFingerprint();
-
       // Call API
       const response = await authService.register(name, email, password);
 
       // Store auth data
       setLogin(response.user, response.token);
-
-      // Auto-trust first device
-      await trustCurrentDevice(response.user.id);
 
       toast.success("Account created successfully!");
       router.push("/dashboard");
@@ -199,7 +170,6 @@ export const useAuth = () => {
       setLogin(response.user, response.token);
 
       toast.success("MFA verification successful!");
-      router.push("/dashboard");
 
       return { success: true };
     } catch (error: any) {
@@ -217,7 +187,7 @@ export const useAuth = () => {
   const refreshProfile = async () => {
     try {
       const response = await authService.getProfile();
-      useAuthStore.getState().setUser(response.user);
+      updateUser(response.user);
     } catch (error) {
       console.error("Failed to refresh profile:", error);
     }
@@ -312,75 +282,6 @@ export const useAuth = () => {
   };
 
   /**
-   * Enable MFA
-   */
-  const enableMFA = async () => {
-    try {
-      setLoading(true);
-
-      const response = await authService.initiateMFA();
-
-      return {
-        qrCodeUrl: response.qrCodeUrl,
-        secret: response.secret,
-        backupCodes: response.backupCodes,
-      };
-    } catch (error: any) {
-      const message = error?.response?.data?.message || "Failed to enable MFA.";
-      toast.error(message);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /**
-   * Verify MFA setup
-   */
-  const verifyMFASetup = async (code: string) => {
-    try {
-      setLoading(true);
-
-      await authService.verifyMFASetup(code);
-
-      // Refresh profile to get updated MFA status
-      await refreshProfile();
-
-      toast.success("Two-factor authentication enabled successfully!");
-      return { success: true };
-    } catch (error: any) {
-      const message = error?.response?.data?.message || "Invalid verification code.";
-      toast.error(message);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /**
-   * Disable MFA
-   */
-  const disableMFA = async (password: string) => {
-    try {
-      setLoading(true);
-
-      await authService.disableMFA(password);
-
-      // Refresh profile
-      await refreshProfile();
-
-      toast.success("Two-factor authentication disabled.");
-      return { success: true };
-    } catch (error: any) {
-      const message = error?.response?.data?.message || "Failed to disable MFA.";
-      toast.error(message);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /**
    * Check if session is valid
    */
   const checkSession = async (): Promise<boolean> => {
@@ -389,27 +290,6 @@ export const useAuth = () => {
       return true;
     } catch {
       return false;
-    }
-  };
-
-  /**
-   * Force logout from all devices
-   */
-  const logoutAllDevices = async () => {
-    try {
-      setLoading(true);
-
-      await authService.logoutAllDevices();
-
-      setLogout();
-      toast.info("Logged out from all devices.");
-      router.push("/login");
-    } catch (error: any) {
-      const message = error?.response?.data?.message || "Failed to logout all devices.";
-      toast.error(message);
-      throw error;
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -434,57 +314,7 @@ export const useAuth = () => {
     requestPasswordReset,
     resetPassword,
 
-    // MFA actions
-    enableMFA,
-    verifyMFASetup,
-    disableMFA,
-
     // Session actions
     checkSession,
-    logoutAllDevices,
   };
-};
-
-/**
- * Hook for checking authentication status
- */
-export const useAuthCheck = () => {
-  const { isAuthenticated, isLoading, checkSession } = useAuth();
-  const router = useRouter();
-
-  const requireAuth = async (redirectTo: string = '/login') => {
-    if (!isAuthenticated) {
-      router.push(redirectTo);
-      return false;
-    }
-
-    // Verify session is still valid
-    const isValid = await checkSession();
-    if (!isValid) {
-      router.push(redirectTo);
-      return false;
-    }
-
-    return true;
-  };
-
-  return {
-    isAuthenticated,
-    isLoading,
-    requireAuth,
-  };
-};
-
-/**
- * Hook for protected routes
- */
-export const useProtectedRoute = () => {
-  const { isAuthenticated, isLoading } = useAuth();
-  const router = useRouter();
-
-  if (!isLoading && !isAuthenticated) {
-    router.push('/login');
-  }
-
-  return { isAuthenticated, isLoading };
 };

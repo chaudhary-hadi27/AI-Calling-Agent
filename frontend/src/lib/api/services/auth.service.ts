@@ -1,8 +1,3 @@
-/**
- * Enhanced Authentication Service
- * Complete API methods for authentication
- */
-
 import apiClient from "../client";
 import { API_ENDPOINTS } from "../endpoints";
 
@@ -38,10 +33,22 @@ export interface MFASetupResponse {
 
 export const authService = {
   /**
-   * Login with email and password
+   * Enhanced login with device trust
    */
-  login: (email: string, password: string): Promise<LoginResponse> =>
-    apiClient.post(API_ENDPOINTS.AUTH.LOGIN, { email, password }),
+  login: (
+    email: string,
+    password: string,
+    options?: {
+      deviceFingerprint?: string;
+      trustDevice?: boolean;
+    }
+  ): Promise<LoginResponse> =>
+    apiClient.post(API_ENDPOINTS.AUTH.LOGIN, {
+      email,
+      password,
+      deviceFingerprint: options?.deviceFingerprint,
+      trustDevice: options?.trustDevice,
+    }),
 
   /**
    * Register new account
@@ -96,6 +103,15 @@ export const authService = {
     }),
 
   /**
+   * Verify MFA code during login
+   */
+  verifyMFA: (
+    tempToken: string,
+    code: string
+  ): Promise<LoginResponse> =>
+    apiClient.post('/api/auth/mfa/verify', { tempToken, code }),
+
+  /**
    * Initiate MFA setup
    */
   initiateMFA: (): Promise<MFASetupResponse> =>
@@ -108,34 +124,10 @@ export const authService = {
     apiClient.post('/api/auth/mfa/verify-setup', { code }),
 
   /**
-   * Verify MFA code during login
-   */
-  verifyMFA: (
-    tempToken: string,
-    code: string
-  ): Promise<LoginResponse> =>
-    apiClient.post('/api/auth/mfa/verify', { tempToken, code }),
-
-  /**
    * Disable MFA
    */
   disableMFA: (password: string): Promise<{ message: string }> =>
     apiClient.post('/api/auth/mfa/disable', { password }),
-
-  /**
-   * Verify MFA backup code
-   */
-  verifyBackupCode: (
-    tempToken: string,
-    backupCode: string
-  ): Promise<LoginResponse> =>
-    apiClient.post('/api/auth/mfa/verify-backup', { tempToken, backupCode }),
-
-  /**
-   * Regenerate MFA backup codes
-   */
-  regenerateBackupCodes: (): Promise<{ backupCodes: string[] }> =>
-    apiClient.post('/api/auth/mfa/regenerate-backup-codes'),
 
   /**
    * Verify email with token
@@ -148,18 +140,6 @@ export const authService = {
    */
   resendVerificationEmail: (): Promise<{ message: string }> =>
     apiClient.post('/api/auth/resend-verification'),
-
-  /**
-   * Send OTP to email
-   */
-  sendOTP: (email: string): Promise<{ message: string; expiresIn: number }> =>
-    apiClient.post('/api/auth/otp/send', { email }),
-
-  /**
-   * Verify OTP code
-   */
-  verifyOTP: (email: string, code: string): Promise<{ verified: boolean }> =>
-    apiClient.post('/api/auth/otp/verify', { email, code }),
 
   /**
    * Get user's trusted devices
@@ -217,62 +197,6 @@ export const authService = {
    */
   logoutAllDevices: (): Promise<{ message: string }> =>
     apiClient.post('/api/auth/sessions/logout-all'),
-
-  /**
-   * Get security events log
-   */
-  getSecurityLog: (params?: {
-    limit?: number;
-    offset?: number;
-    eventType?: string;
-  }): Promise<{
-    events: Array<{
-      id: string;
-      type: string;
-      timestamp: string;
-      ipAddress: string;
-      deviceInfo: string;
-      location: string;
-    }>;
-    total: number;
-  }> => apiClient.get('/api/auth/security-log', { params }),
-
-  /**
-   * Update user profile
-   */
-  updateProfile: (data: {
-    name?: string;
-    email?: string;
-    avatar?: string;
-  }): Promise<{ user: LoginResponse['user'] }> =>
-    apiClient.patch('/api/auth/profile', data),
-
-  /**
-   * Delete account
-   */
-  deleteAccount: (password: string): Promise<{ message: string }> =>
-    apiClient.post('/api/auth/delete-account', { password }),
-
-  /**
-   * Export user data (GDPR)
-   */
-  exportData: (): Promise<{ downloadUrl: string }> =>
-    apiClient.post('/api/auth/export-data'),
-
-  /**
-   * Check if email is available
-   */
-  checkEmailAvailability: (email: string): Promise<{ available: boolean }> =>
-    apiClient.post('/api/auth/check-email', { email }),
-
-  /**
-   * Validate password strength
-   */
-  validatePassword: (password: string): Promise<{
-    strength: 'weak' | 'medium' | 'strong';
-    score: number;
-    feedback: string[];
-  }> => apiClient.post('/api/auth/validate-password', { password }),
 };
 
 export default authService;
