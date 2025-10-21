@@ -1,101 +1,65 @@
 /**
- * Enhanced API Client with Security Features
- * - CSRF Protection
- * - Automatic Token Refresh
- * - Request Retry Logic
- * - Request/Response Encryption
- * - Error Handling & Logging
+ * ✅ SECURE API Client - Fixed for Production
+ * - Tokens in httpOnly cookies (backend managed)
+ * - CSRF protection via server-generated tokens
+ * - Automatic retry with exponential backoff
  */
 
 import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from "axios";
-import { getCSRFHeaders } from "@/lib/security/csrfProtection";
 import { logSecurityEvent } from "@/lib/security/logging";
 
-// Create axios instance
 const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
   timeout: 30000,
   headers: {
     "Content-Type": "application/json",
   },
-  withCredentials: true, // Enable cookies for CSRF
+  withCredentials: true, // ✅ CRITICAL: Send httpOnly cookies automatically
 });
 
-// Track request retry attempts
 const retryCountMap = new Map<string, number>();
 const MAX_RETRIES = 3;
-const RETRY_DELAY = 1000; // ms
+const RETRY_DELAY = 1000;
 
-/**
- * Get unique request key for retry tracking
- */
 function getRequestKey(config: AxiosRequestConfig): string {
   return `${config.method}-${config.url}`;
 }
 
-/**
- * Delay helper for retry logic
- */
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-/**
- * Calculate exponential backoff delay
- */
 function getRetryDelay(retryCount: number): number {
   return RETRY_DELAY * Math.pow(2, retryCount);
 }
 
-/**
- * Check if error is retryable
- */
 function isRetryableError(error: AxiosError): boolean {
-  if (!error.response) {
-    // Network errors are retryable
-    return true;
-  }
-
+  if (!error.response) return true;
   const status = error.response.status;
-  
-  // Retry on these status codes
   const retryableStatuses = [408, 429, 500, 502, 503, 504];
   return retryableStatuses.includes(status);
 }
 
 // ============================================
-// REQUEST INTERCEPTOR
+// REQUEST INTERCEPTOR - ✅ SECURE VERSION
 // ============================================
-
 apiClient.interceptors.request.use(
   async (config) => {
-    // 1. Add CSRF token to all non-GET requests
+    // 1. ✅ CSRF Token from backend (read from cookie or meta tag)
     if (config.method !== 'get') {
       try {
-        const csrfHeaders = await getCSRFHeaders();
-        config.headers = {
-          ...config.headers,
-          ...csrfHeaders,
-        };
+        // Backend should set CSRF token in cookie: csrf-token
+        // Or in meta tag: <meta name="csrf-token" content="...">
+        const csrfToken = getCsrfTokenFromCookie() || getCsrfTokenFromMeta();
+
+        if (csrfToken) {
+          config.headers['X-CSRF-Token'] = csrfToken;
+        }
       } catch (error) {
         console.error('Failed to get CSRF token:', error);
       }
     }
 
-    // 2. Add auth token from storage
-    if (typeof window !== "undefined") {
-      try {
-        const authStorage = localStorage.getItem("auth-storage");
-        if (authStorage) {
-          const { state } = JSON.parse(authStorage);
-          const token = state?.token;
-          
-          if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-          }
-        }
-      } catch (error) {
-        console.error("Error parsing auth storage:", error);
-      }
-    }
+    // 2. ❌ REMOVED: Authorization header (token now in httpOnly cookie)
+    // Backend will read token from cookie automatically
 
     // 3. Add request metadata
     config.headers['X-Request-ID'] = `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -121,14 +85,10 @@ apiClient.interceptors.request.use(
 // ============================================
 // RESPONSE INTERCEPTOR
 // ============================================
-
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => {
-    // Clear retry count on success
     const requestKey = getRequestKey(response.config);
     retryCountMap.delete(requestKey);
-
-    // Return data directly (unwrap response)
     return response.data;
   },
   async (error: AxiosError) => {
@@ -140,38 +100,23 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
-      // Try to refresh token
       try {
-        const refreshResponse = await axios.post(
+        // ✅ SECURE: Call backend refresh endpoint
+        // Backend will refresh the httpOnly cookie
+        await axios.post(
           `${process.env.NEXT_PUBLIC_API_URL}/api/auth/refresh`,
           {},
           { withCredentials: true }
         );
 
-        const newToken = refreshResponse.data.token;
-
-        // Update token in storage
-        if (typeof window !== "undefined") {
-          const authStorage = localStorage.getItem("auth-storage");
-          if (authStorage) {
-            const parsed = JSON.parse(authStorage);
-            parsed.state.token = newToken;
-            localStorage.setItem("auth-storage", JSON.stringify(parsed));
-          }
-        }
-
-        // Retry original request with new token
-        if (originalRequest.headers) {
-          originalRequest.headers.Authorization = `Bearer ${newToken}`;
-        }
-
+        // Retry original request with new cookie
         return apiClient(originalRequest);
       } catch (refreshError) {
-        // Refresh failed - logout user
+        // Refresh failed - redirect to login
         if (typeof window !== "undefined") {
+          // Clear local storage
           localStorage.removeItem("auth-storage");
-          document.cookie = "auth-token=; path=/; max-age=0";
-          
+
           logSecurityEvent('session_expired', {
             metadata: { reason: 'token_refresh_failed' },
           });
@@ -184,7 +129,7 @@ apiClient.interceptors.response.use(
     }
 
     // ============================================
-    // HANDLE 403 FORBIDDEN
+    // HANDLE 403 FORBIDDEN (CSRF)
     // ============================================
     if (error.response?.status === 403) {
       logSecurityEvent('api_forbidden', {
@@ -194,18 +139,14 @@ apiClient.interceptors.response.use(
         },
       });
 
-      // Check if CSRF token issue
       const csrfError = error.response.data?.error?.toLowerCase().includes('csrf');
       if (csrfError) {
-        // Retry with fresh CSRF token
+        // Fetch fresh CSRF token from backend
         try {
-          const csrfHeaders = await getCSRFHeaders();
-          if (originalRequest.headers) {
-            originalRequest.headers = {
-              ...originalRequest.headers,
-              ...csrfHeaders,
-            };
-          }
+          await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/csrf`, {
+            withCredentials: true,
+          });
+          // Retry with new CSRF token
           return apiClient(originalRequest);
         } catch {
           return Promise.reject(error);
@@ -227,7 +168,6 @@ apiClient.interceptors.response.use(
         },
       });
 
-      // Wait and retry if within retry limit
       const requestKey = getRequestKey(originalRequest);
       const retryCount = retryCountMap.get(requestKey) || 0;
 
@@ -239,7 +179,7 @@ apiClient.interceptors.response.use(
     }
 
     // ============================================
-    // HANDLE RETRYABLE ERRORS (Network, 5xx)
+    // HANDLE RETRYABLE ERRORS
     // ============================================
     if (isRetryableError(error) && !originalRequest._retry) {
       const requestKey = getRequestKey(originalRequest);
@@ -247,8 +187,6 @@ apiClient.interceptors.response.use(
 
       if (retryCount < MAX_RETRIES) {
         retryCountMap.set(requestKey, retryCount + 1);
-        
-        // Exponential backoff
         const retryDelay = getRetryDelay(retryCount);
         await delay(retryDelay);
 
@@ -259,9 +197,8 @@ apiClient.interceptors.response.use(
 
         return apiClient(originalRequest);
       } else {
-        // Max retries exceeded
         retryCountMap.delete(requestKey);
-        
+
         logSecurityEvent('api_max_retries', {
           metadata: {
             endpoint: originalRequest.url,
@@ -272,144 +209,75 @@ apiClient.interceptors.response.use(
     }
 
     // ============================================
-    // LOG OTHER ERRORS
+    // LOG ERRORS
     // ============================================
     if (error.response) {
-      // Server responded with error status
       console.error('API Error Response:', {
         status: error.response.status,
         data: error.response.data,
         url: originalRequest.url,
       });
     } else if (error.request) {
-      // Request made but no response
       console.error('API No Response:', {
         url: originalRequest.url,
         message: error.message,
       });
     } else {
-      // Request setup error
       console.error('API Request Error:', error.message);
     }
 
-    // Return rejected promise with error
     return Promise.reject(error);
   }
 );
 
 // ============================================
-// UTILITY FUNCTIONS
+// HELPER FUNCTIONS
 // ============================================
 
 /**
- * Check if API is healthy
+ * ✅ Get CSRF token from cookie (set by backend)
  */
-export async function checkAPIHealth(): Promise<boolean> {
-  try {
-    const response = await apiClient.get('/health');
-    return response.status === 'ok';
-  } catch {
-    return false;
-  }
+function getCsrfTokenFromCookie(): string | null {
+  if (typeof document === 'undefined') return null;
+
+  const match = document.cookie.match(/csrf[_-]?token=([^;]+)/i);
+  return match ? match[1] : null;
 }
 
 /**
- * Get API version
+ * ✅ Get CSRF token from meta tag (alternative method)
  */
-export async function getAPIVersion(): Promise<string> {
-  try {
-    const response = await apiClient.get('/version');
-    return response.version || 'unknown';
-  } catch {
-    return 'unknown';
-  }
+function getCsrfTokenFromMeta(): string | null {
+  if (typeof document === 'undefined') return null;
+
+  const meta = document.querySelector('meta[name="csrf-token"]');
+  return meta ? meta.getAttribute('content') : null;
 }
 
-/**
- * Clear all retry counters
- */
-export function clearRetryCounters(): void {
-  retryCountMap.clear();
-}
-
-/**
- * Get current retry count for a request
- */
-export function getRetryCount(method: string, url: string): number {
-  const key = `${method}-${url}`;
-  return retryCountMap.get(key) || 0;
-}
-
-// Export configured client
 export default apiClient;
 
-// ============================================
-// TYPE-SAFE API WRAPPER
-// ============================================
-
-/**
- * Type-safe API request wrapper
- */
-export async function apiRequest<T = any>(
-  config: AxiosRequestConfig
-): Promise<T> {
-  try {
-    const response = await apiClient.request<T>(config);
-    return response as unknown as T;
-  } catch (error) {
-    throw error;
-  }
+// Type-safe request wrappers
+export async function apiRequest<T = any>(config: AxiosRequestConfig): Promise<T> {
+  const response = await apiClient.request<T>(config);
+  return response as unknown as T;
 }
 
-/**
- * Type-safe GET request
- */
-export async function apiGet<T = any>(
-  url: string,
-  config?: AxiosRequestConfig
-): Promise<T> {
+export async function apiGet<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
   return apiRequest<T>({ ...config, method: 'GET', url });
 }
 
-/**
- * Type-safe POST request
- */
-export async function apiPost<T = any>(
-  url: string,
-  data?: any,
-  config?: AxiosRequestConfig
-): Promise<T> {
+export async function apiPost<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
   return apiRequest<T>({ ...config, method: 'POST', url, data });
 }
 
-/**
- * Type-safe PUT request
- */
-export async function apiPut<T = any>(
-  url: string,
-  data?: any,
-  config?: AxiosRequestConfig
-): Promise<T> {
+export async function apiPut<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
   return apiRequest<T>({ ...config, method: 'PUT', url, data });
 }
 
-/**
- * Type-safe DELETE request
- */
-export async function apiDelete<T = any>(
-  url: string,
-  config?: AxiosRequestConfig
-): Promise<T> {
+export async function apiDelete<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
   return apiRequest<T>({ ...config, method: 'DELETE', url });
 }
 
-/**
- * Type-safe PATCH request
- */
-export async function apiPatch<T = any>(
-  url: string,
-  data?: any,
-  config?: AxiosRequestConfig
-): Promise<T> {
+export async function apiPatch<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
   return apiRequest<T>({ ...config, method: 'PATCH', url, data });
 }

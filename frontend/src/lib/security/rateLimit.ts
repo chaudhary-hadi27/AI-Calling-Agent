@@ -10,22 +10,72 @@ interface RateLimitEntry {
   lockedUntil?: number;
 }
 
+/**
+ * ✅ FIXED: Rate Limiter with SessionStorage Persistence
+ * Survives page refreshes within same session
+ */
 class RateLimiter {
   private storage: Map<string, RateLimitEntry> = new Map();
   private cleanupInterval: NodeJS.Timeout | null = null;
+  private readonly STORAGE_KEY = 'rate_limit_data';
 
   constructor() {
+    this.loadFromSessionStorage();
     this.startCleanup();
   }
 
   /**
+   * ✅ Load rate limit data from sessionStorage
+   */
+  private loadFromSessionStorage(): void {
+    if (typeof window === 'undefined' || typeof sessionStorage === 'undefined') return;
+
+    try {
+      const stored = sessionStorage.getItem(this.STORAGE_KEY);
+      if (stored) {
+        const data = JSON.parse(stored) as Array<[string, RateLimitEntry]>;
+        this.storage = new Map(data);
+
+        // Clean expired entries
+        const now = Date.now();
+        for (const [key, entry] of this.storage.entries()) {
+          if (entry.lockedUntil && now > entry.lockedUntil) {
+            this.storage.delete(key);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load rate limit data:', error);
+      this.storage.clear();
+    }
+  }
+
+  /**
+   * ✅ Save rate limit data to sessionStorage
+   */
+  private saveToSessionStorage(): void {
+    if (typeof window === 'undefined' || typeof sessionStorage === 'undefined') return;
+
+    try {
+      const data = Array.from(this.storage.entries());
+      sessionStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
+    } catch (error) {
+      console.error('Failed to save rate limit data:', error);
+    }
+  }
+
+  /**
    * Check if action is allowed
-   * @returns { allowed: boolean, remainingAttempts: number, lockedUntil?: number }
    */
   check(
     key: string,
     config: RateLimitConfig
-  ): { allowed: boolean; remainingAttempts: number; lockedUntil?: number; retryAfter?: number } {
+  ): {
+    allowed: boolean;
+    remainingAttempts: number;
+    lockedUntil?: number;
+    retryAfter?: number;
+  } {
     const entry = this.storage.get(key);
     const now = Date.now();
 
@@ -35,6 +85,7 @@ class RateLimiter {
         attempts: 1,
         firstAttemptAt: now,
       });
+      this.saveToSessionStorage();
       return { allowed: true, remainingAttempts: config.maxAttempts - 1 };
     }
 
@@ -56,6 +107,7 @@ class RateLimiter {
         attempts: 1,
         firstAttemptAt: now,
       });
+      this.saveToSessionStorage();
       return { allowed: true, remainingAttempts: config.maxAttempts - 1 };
     }
 
@@ -66,6 +118,7 @@ class RateLimiter {
     if (entry.attempts > config.maxAttempts) {
       entry.lockedUntil = now + config.lockoutDurationMs;
       this.storage.set(key, entry);
+      this.saveToSessionStorage();
 
       const retryAfter = Math.ceil(config.lockoutDurationMs / 1000);
       return {
@@ -77,6 +130,8 @@ class RateLimiter {
     }
 
     this.storage.set(key, entry);
+    this.saveToSessionStorage();
+
     return {
       allowed: true,
       remainingAttempts: config.maxAttempts - entry.attempts,
@@ -88,6 +143,7 @@ class RateLimiter {
    */
   reset(key: string): void {
     this.storage.delete(key);
+    this.saveToSessionStorage();
   }
 
   /**
@@ -124,8 +180,11 @@ class RateLimiter {
    * Cleanup expired entries every 5 minutes
    */
   private startCleanup(): void {
+    if (typeof window === 'undefined') return;
+
     this.cleanupInterval = setInterval(() => {
       const now = Date.now();
+      let hasChanges = false;
 
       for (const [key, entry] of this.storage.entries()) {
         // Remove if lockout expired and window passed
@@ -134,15 +193,31 @@ class RateLimiter {
           now - entry.firstAttemptAt > 3600000 // 1 hour
         ) {
           this.storage.delete(key);
+          hasChanges = true;
         }
       }
+
+      if (hasChanges) {
+        this.saveToSessionStorage();
+      }
     }, 300000); // 5 minutes
+  }
+
+  /**
+   * Clear all rate limits (use with caution)
+   */
+  clearAll(): void {
+    this.storage.clear();
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem(this.STORAGE_KEY);
+    }
   }
 
   destroy(): void {
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval);
     }
+    this.clearAll();
   }
 }
 

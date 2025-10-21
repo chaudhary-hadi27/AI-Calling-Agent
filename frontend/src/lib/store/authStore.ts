@@ -7,18 +7,18 @@ export interface User {
   email: string;
   role: string;
   avatar?: string;
+  mfaEnabled?: boolean;
 }
 
 interface AuthStore {
   user: User | null;
-  token: string | null;
+  // ❌ REMOVED: token from store (now httpOnly cookie only)
   isAuthenticated: boolean;
   isLoading: boolean;
 
   // Actions
   setUser: (user: User) => void;
-  setToken: (token: string) => void;
-  login: (user: User, token: string) => void;
+  login: (user: User) => void; // Token handled by backend cookie
   logout: () => void;
   setLoading: (loading: boolean) => void;
   updateUser: (updates: Partial<User>) => void;
@@ -28,7 +28,6 @@ export const useAuthStore = create<AuthStore>()(
   persist(
     (set) => ({
       user: null,
-      token: null,
       isAuthenticated: false,
       isLoading: false,
 
@@ -38,38 +37,23 @@ export const useAuthStore = create<AuthStore>()(
           isAuthenticated: true,
         }),
 
-      setToken: (token) => {
-        set({ token });
-        // Store token in cookie for middleware
-        if (typeof document !== "undefined") {
-          document.cookie = `auth-token=${token}; path=/; max-age=604800`; // 7 days
-        }
-      },
-
-      login: (user, token) => {
+      // ✅ SECURE: Token is set by backend as httpOnly cookie
+      // Frontend only stores user info
+      login: (user) => {
         set({
           user,
-          token,
           isAuthenticated: true,
           isLoading: false,
         });
-        // Store token in cookie
-        if (typeof document !== "undefined") {
-          document.cookie = `auth-token=${token}; path=/; max-age=604800`;
-        }
       },
 
       logout: () => {
         set({
           user: null,
-          token: null,
           isAuthenticated: false,
           isLoading: false,
         });
-        // Clear cookie
-        if (typeof document !== "undefined") {
-          document.cookie = "auth-token=; path=/; max-age=0";
-        }
+        // Cookie will be cleared by backend logout endpoint
       },
 
       setLoading: (loading) =>
@@ -83,9 +67,9 @@ export const useAuthStore = create<AuthStore>()(
     {
       name: "auth-storage",
       storage: createJSONStorage(() => localStorage),
+      // ✅ SECURE: Only persist user info, NOT token
       partialize: (state) => ({
         user: state.user,
-        token: state.token,
         isAuthenticated: state.isAuthenticated,
       }),
     }

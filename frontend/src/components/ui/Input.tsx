@@ -21,6 +21,8 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
       className = "",
       disabled,
       type = "text",
+      id,
+      required,
       ...props
     },
     ref
@@ -28,26 +30,61 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     const hasError = !!error;
     const widthClass = fullWidth ? "w-full" : "";
 
+    // ✅ Generate unique IDs for accessibility
+    const inputId = id || `input-${React.useId()}`;
+    const errorId = `${inputId}-error`;
+    const helperId = `${inputId}-helper`;
+    const labelId = `${inputId}-label`;
+
     return (
       <div className={`${widthClass}`}>
+        {/* ✅ ACCESSIBLE: Proper label with htmlFor */}
         {label && (
-          <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
+          <label
+            id={labelId}
+            htmlFor={inputId}
+            className="block text-sm font-medium text-[var(--color-text-primary)] mb-2"
+          >
             {label}
-            {props.required && <span className="text-[var(--color-error-500)] ml-1">*</span>}
+            {required && (
+              <span
+                className="text-[var(--color-error-500)] ml-1"
+                aria-label="required"
+              >
+                *
+              </span>
+            )}
           </label>
         )}
 
         <div className="relative">
+          {/* ✅ ACCESSIBLE: Left icon with proper semantics */}
           {leftIcon && (
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)]">
+            <div
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)]"
+              aria-hidden="true"
+            >
               {leftIcon}
             </div>
           )}
 
+          {/* ✅ ACCESSIBLE: Comprehensive ARIA attributes */}
           <input
             ref={ref}
+            id={inputId}
             type={type}
             disabled={disabled}
+            required={required}
+            aria-required={required}
+            aria-invalid={hasError}
+            aria-describedby={
+              hasError
+                ? errorId
+                : helperText
+                  ? helperId
+                  : undefined
+            }
+            aria-labelledby={label ? labelId : undefined}
             className={`
               w-full px-4 py-3
               bg-[var(--color-bg-secondary)]
@@ -69,19 +106,30 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             {...props}
           />
 
+          {/* ✅ ACCESSIBLE: Right icon with proper semantics */}
           {rightIcon && (
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)]">
+            <div
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)]"
+              aria-hidden="true"
+            >
               {rightIcon}
             </div>
           )}
         </div>
 
+        {/* ✅ ACCESSIBLE: Error message with proper ARIA */}
         {error && (
-          <p className="mt-1.5 text-sm text-[var(--color-error-500)] flex items-center gap-1">
+          <p
+            id={errorId}
+            className="mt-1.5 text-sm text-[var(--color-error-500)] flex items-center gap-1"
+            role="alert"
+            aria-live="polite"
+          >
             <svg
               className="w-4 h-4"
               fill="currentColor"
               viewBox="0 0 20 20"
+              aria-hidden="true"
             >
               <path
                 fillRule="evenodd"
@@ -93,8 +141,12 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           </p>
         )}
 
+        {/* ✅ ACCESSIBLE: Helper text with proper ID */}
         {helperText && !error && (
-          <p className="mt-1.5 text-sm text-[var(--color-text-tertiary)]">
+          <p
+            id={helperId}
+            className="mt-1.5 text-sm text-[var(--color-text-tertiary)]"
+          >
             {helperText}
           </p>
         )}
