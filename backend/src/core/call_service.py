@@ -125,7 +125,7 @@ class CallService(LoggerMixin):
             # Update call with Twilio data
             call.call_sid = twilio_response['call_sid']
             call.status = CallStatus.RINGING
-            call.provider_data = twilio_response
+            call.provider_info = twilio_response  # ✅ Changed from provider_data
 
             await session.commit()
 

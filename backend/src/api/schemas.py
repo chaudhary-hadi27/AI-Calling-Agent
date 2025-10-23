@@ -15,11 +15,11 @@ class ContactCreate(BaseModel):
     first_name: Optional[str] = Field(None, max_length=100)
     last_name: Optional[str] = Field(None, max_length=100)
     email: Optional[str] = Field(None)
-    metadata: Optional[Dict] = Field(default_factory=dict)
+    # ✅ FIX: Renamed from 'metadata' to 'extra_data'
+    extra_data: Optional[Dict] = Field(default_factory=dict)
 
     @validator('phone_number')
     def validate_phone_number(cls, v):
-        # Basic phone number validation
         if not v.startswith('+'):
             raise ValueError('Phone number must start with +')
         if not v[1:].isdigit():
@@ -33,7 +33,7 @@ class ContactResponse(BaseModel):
     first_name: Optional[str]
     last_name: Optional[str]
     email: Optional[str]
-    metadata: Optional[Dict]
+    extra_data: Optional[Dict]
     created_at: datetime
     updated_at: datetime
 
@@ -47,7 +47,7 @@ class CallCreate(BaseModel):
     script: Optional[str] = Field(None, description="AI agent script/prompt")
     contact_id: Optional[UUID] = Field(None)
     campaign_id: Optional[UUID] = Field(None)
-    metadata: Optional[Dict] = Field(default_factory=dict)
+    extra_data: Optional[Dict] = Field(default_factory=dict)
 
     @validator('to_number')
     def validate_to_number(cls, v):
@@ -90,7 +90,7 @@ class CallStatusUpdate(BaseModel):
     ended_at: Optional[datetime] = None
     cost: Optional[float] = None
     error_message: Optional[str] = None
-    provider_data: Optional[Dict] = None
+    provider_info: Optional[Dict] = None
 
 
 # Campaign schemas

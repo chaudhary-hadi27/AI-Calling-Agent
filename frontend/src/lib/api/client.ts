@@ -8,14 +8,20 @@
 import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from "axios";
 import { logSecurityEvent } from "@/lib/security/logging";
 
+
 const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
-  timeout: 30000,
-  headers: {
-    "Content-Type": "application/json",
-  },
-  withCredentials: true, // ✅ CRITICAL: Send httpOnly cookies automatically
+  withCredentials: true, // ✅ Already set!
 });
+
+// const apiClient = axios.create({
+//   baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
+//   timeout: 30000,
+//   headers: {
+//     "Content-Type": "application/json",
+//   },
+//   withCredentials: true, // ✅ CRITICAL: Send httpOnly cookies automatically
+// });
 
 const retryCountMap = new Map<string, number>();
 const MAX_RETRIES = 3;

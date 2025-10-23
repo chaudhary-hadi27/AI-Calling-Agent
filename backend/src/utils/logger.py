@@ -53,13 +53,17 @@ def setup_logging() -> None:
             )
         )
     else:
-        handlers.append(logging.StreamHandler(sys.stdout))
+        # Use standard StreamHandler for JSON logging
+        json_handler = logging.StreamHandler(sys.stdout)
+        json_handler.setFormatter(logging.Formatter('%(message)s'))
+        handlers.append(json_handler)
 
+    # ✅ FIX: Remove 'stream' parameter - only use 'handlers'
     logging.basicConfig(
         format="%(message)s",
-        stream=sys.stdout,
         level=getattr(logging, settings.logging.level.upper()),
         handlers=handlers,
+        force=True  # ✅ Override any existing config
     )
 
     # Set specific logger levels

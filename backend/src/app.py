@@ -392,6 +392,20 @@ if settings.api.debug:
         except Exception as e:
             return {"error": f"Test failed: {str(e)}"}
 
+# Add middlewares
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ✅ ADD: CSRF Protection Middleware
+from .middleware.csrf import csrf_middleware
+app.middleware("http")(csrf_middleware)
+
+# Rest of your middleware...
 
 if __name__ == "__main__":
     import uvicorn
@@ -402,4 +416,5 @@ if __name__ == "__main__":
         port=settings.api.port,
         reload=settings.api.debug,
         log_level=settings.logging.level.lower(),
+
     )

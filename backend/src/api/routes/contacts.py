@@ -79,13 +79,12 @@ async def create_contact(
                 detail=f"Contact with phone number {contact_data.phone_number} already exists"
             )
 
-        # Create new contact
         contact = Contact(
             phone_number=contact_data.phone_number,
             first_name=contact_data.first_name,
             last_name=contact_data.last_name,
             email=contact_data.email,
-            metadata=contact_data.metadata or {}
+            extra_data=contact_data.extra_data or {}  # ✅ Changed
         )
 
         session.add(contact)

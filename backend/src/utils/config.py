@@ -120,6 +120,12 @@ class Settings(BaseSettings):
     testing: bool = Field(False)
     debug: bool = Field(False, alias="DEBUG")
 
+    # ✅ ADD: CSRF Secret Key
+    csrf_secret_key: str = Field(
+        default="dev-csrf-secret-change-in-production-min-32-characters",
+        alias="CSRF_SECRET_KEY"
+    )
+
     # Sub-configurations
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
     jwt: JWTSettings = Field(default_factory=JWTSettings)

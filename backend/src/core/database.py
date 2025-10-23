@@ -55,7 +55,7 @@ class CallDirection(str, enum.Enum):
 
 
 # ============================================
-# USER MODELS (NEW)
+# USER MODELS
 # ============================================
 
 class UserRole(str, enum.Enum):
@@ -84,10 +84,10 @@ class User(Base):
     # MFA
     mfa_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     mfa_secret: Mapped[Optional[str]] = mapped_column(String(255))
-    backup_codes: Mapped[Optional[list]] = mapped_column(JSON, default=[])
+    backup_codes: Mapped[Optional[dict]] = mapped_column(JSON, default={})
 
-    # Metadata
-    metadata: Mapped[Optional[dict]] = mapped_column(JSON, default={})
+    # ✅ FIX: Renamed from 'metadata' to 'extra_data'
+    extra_data: Mapped[Optional[dict]] = mapped_column(JSON, default={})
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -99,11 +99,11 @@ class User(Base):
 
 
 # ============================================
-# EXISTING MODELS (KEEP)
+# CONTACT MODEL
 # ============================================
 
 class Contact(Base):
-    """Contact model for storing phone numbers and metadata."""
+    """Contact model for storing phone numbers and contact info."""
 
     __tablename__ = "contacts"
 
@@ -112,7 +112,9 @@ class Contact(Base):
     first_name: Mapped[Optional[str]] = mapped_column(String(100))
     last_name: Mapped[Optional[str]] = mapped_column(String(100))
     email: Mapped[Optional[str]] = mapped_column(String(255))
-    metadata: Mapped[Optional[dict]] = mapped_column(JSON)
+
+    # ✅ FIX: Renamed from 'metadata' to 'extra_data'
+    extra_data: Mapped[Optional[dict]] = mapped_column(JSON, default={})
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -122,6 +124,10 @@ class Contact(Base):
     calls: Mapped[list["Call"]] = relationship("Call", back_populates="contact")
     campaign_contacts: Mapped[list["CampaignContact"]] = relationship("CampaignContact", back_populates="contact")
 
+
+# ============================================
+# CAMPAIGN MODEL
+# ============================================
 
 class Campaign(Base):
     """Campaign model for bulk calling campaigns."""
@@ -133,8 +139,8 @@ class Campaign(Base):
     description: Mapped[Optional[str]] = mapped_column(Text)
     status: Mapped[CampaignStatus] = mapped_column(Enum(CampaignStatus), default=CampaignStatus.DRAFT)
 
-    # Foreign key
-    created_by_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    # Foreign key - make nullable for now
+    created_by_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
 
     # Campaign settings
     script: Mapped[Optional[str]] = mapped_column(Text)
@@ -158,10 +164,14 @@ class Campaign(Base):
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
 
     # Relationships
-    created_by: Mapped["User"] = relationship("User", back_populates="campaigns")
+    created_by: Mapped[Optional["User"]] = relationship("User", back_populates="campaigns")
     calls: Mapped[list["Call"]] = relationship("Call", back_populates="campaign")
     campaign_contacts: Mapped[list["CampaignContact"]] = relationship("CampaignContact", back_populates="campaign")
 
+
+# ============================================
+# CAMPAIGN CONTACT JUNCTION TABLE
+# ============================================
 
 class CampaignContact(Base):
     """Many-to-many relationship between campaigns and contacts."""
@@ -186,6 +196,10 @@ class CampaignContact(Base):
     campaign: Mapped["Campaign"] = relationship("Campaign", back_populates="campaign_contacts")
     contact: Mapped["Contact"] = relationship("Contact", back_populates="campaign_contacts")
 
+
+# ============================================
+# CALL MODEL
+# ============================================
 
 class Call(Base):
     """Call model for individual call records."""
@@ -222,7 +236,9 @@ class Call(Base):
 
     # Technical details
     error_message: Mapped[Optional[str]] = mapped_column(Text)
-    provider_data: Mapped[Optional[dict]] = mapped_column(JSON)
+
+    # ✅ FIX: Renamed from 'provider_data' to avoid any metadata confusion
+    provider_info: Mapped[Optional[dict]] = mapped_column(JSON, default={})
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -234,6 +250,10 @@ class Call(Base):
     campaign: Mapped[Optional["Campaign"]] = relationship("Campaign", back_populates="calls")
     call_logs: Mapped[list["CallLog"]] = relationship("CallLog", back_populates="call", cascade="all, delete-orphan")
 
+
+# ============================================
+# CALL LOG MODEL
+# ============================================
 
 class CallLog(Base):
     """Detailed call logs for conversation flow tracking."""
@@ -257,8 +277,8 @@ class CallLog(Base):
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     duration_ms: Mapped[Optional[int]] = mapped_column(Integer)
 
-    # Metadata
-    metadata: Mapped[Optional[dict]] = mapped_column(JSON)
+    # ✅ FIX: Renamed from 'metadata' to 'extra_data'
+    extra_data: Mapped[Optional[dict]] = mapped_column(JSON, default={})
 
     # Relationships
     call: Mapped["Call"] = relationship("Call", back_populates="call_logs")
@@ -290,7 +310,7 @@ class DatabaseManager:
             expire_on_commit=False,
         )
 
-        logger.info("Database connection initialized", url=settings.database.url)
+        logger.info("Database connection initialized", url=settings.database.url.split('@')[-1])  # Hide credentials
 
     async def get_session(self) -> AsyncGenerator[AsyncSession, None]:
         """Get async database session."""

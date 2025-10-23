@@ -124,7 +124,7 @@ async def seed_sample_data():
                     first_name="John",
                     last_name="Doe",
                     email="john.doe@example.com",
-                    metadata={"source": "sample_data", "priority": "high"}
+                    extra_data={"source": "sample_data", "priority": "high"}
                 ),
                 Contact(
                     id=uuid.uuid4(),
@@ -132,7 +132,7 @@ async def seed_sample_data():
                     first_name="Jane",
                     last_name="Smith",
                     email="jane.smith@example.com",
-                    metadata={"source": "sample_data", "priority": "medium"}
+                    extra_data={"source": "sample_data", "priority": "medium"}
                 ),
                 Contact(
                     id=uuid.uuid4(),
@@ -140,7 +140,7 @@ async def seed_sample_data():
                     first_name="Bob",
                     last_name="Johnson",
                     email="bob.johnson@example.com",
-                    metadata={"source": "sample_data", "priority": "low"}
+                    extra_data={"source": "sample_data", "priority": "low"}
                 )
             ]
 
