@@ -1,3 +1,6 @@
+// File: frontend/src/lib/api/services/auth.service.ts
+// ✅ UPDATED: Added email verification endpoints
+
 import apiClient from "../client";
 import { API_ENDPOINTS } from "../endpoints";
 
@@ -16,13 +19,28 @@ export interface LoginResponse {
 }
 
 export interface RegisterResponse {
+  success: boolean;
+  message: string;
+  email: string;
+  verification_code?: string; // Only in development
+}
+
+export interface VerifyEmailResponse {
+  success: boolean;
+  message: string;
   user: {
     id: string;
-    name: string;
     email: string;
+    full_name: string;
     role: string;
+    is_verified: boolean;
   };
-  token: string;
+}
+
+export interface ResendVerificationResponse {
+  success: boolean;
+  message: string;
+  verification_code?: string; // Only in development
 }
 
 export interface MFASetupResponse {
@@ -32,6 +50,34 @@ export interface MFASetupResponse {
 }
 
 export const authService = {
+  /**
+   * ✅ NEW: Register with email verification
+   */
+  register: (
+    email: string,
+    password: string,
+    full_name: string,
+    username?: string
+  ): Promise<RegisterResponse> =>
+    apiClient.post(API_ENDPOINTS.AUTH.REGISTER, {
+      email,
+      password,
+      full_name,
+      username,
+    }),
+
+  /**
+   * ✅ NEW: Verify email with 6-digit code
+   */
+  verifyEmail: (email: string, code: string): Promise<VerifyEmailResponse> =>
+    apiClient.post(API_ENDPOINTS.AUTH.VERIFY_EMAIL, { email, code }),
+
+  /**
+   * ✅ NEW: Resend verification code
+   */
+  resendVerification: (email: string): Promise<ResendVerificationResponse> =>
+    apiClient.post(API_ENDPOINTS.AUTH.RESEND_VERIFICATION, { email }),
+
   /**
    * Enhanced login with device trust
    */
@@ -51,25 +97,14 @@ export const authService = {
     }),
 
   /**
-   * Register new account
-   */
-  register: (
-    name: string,
-    email: string,
-    password: string
-  ): Promise<RegisterResponse> =>
-    apiClient.post(API_ENDPOINTS.AUTH.REGISTER, { name, email, password }),
-
-  /**
    * Logout current session
    */
-  logout: (): Promise<void> =>
-    apiClient.post(API_ENDPOINTS.AUTH.LOGOUT),
+  logout: (): Promise<void> => apiClient.post(API_ENDPOINTS.AUTH.LOGOUT),
 
   /**
    * Get current user profile
    */
-  getProfile: (): Promise<{ user: LoginResponse['user'] }> =>
+  getProfile: (): Promise<{ user: LoginResponse["user"] }> =>
     apiClient.get(API_ENDPOINTS.AUTH.ME),
 
   /**
@@ -87,7 +122,10 @@ export const authService = {
   /**
    * Reset password with token
    */
-  resetPassword: (token: string, password: string): Promise<{ message: string }> =>
+  resetPassword: (
+    token: string,
+    password: string
+  ): Promise<{ message: string }> =>
     apiClient.post(API_ENDPOINTS.AUTH.RESET_PASSWORD, { token, password }),
 
   /**
@@ -97,7 +135,7 @@ export const authService = {
     currentPassword: string,
     newPassword: string
   ): Promise<{ message: string }> =>
-    apiClient.post('/api/auth/change-password', {
+    apiClient.post("/api/auth/change-password", {
       currentPassword,
       newPassword,
     }),
@@ -105,41 +143,26 @@ export const authService = {
   /**
    * Verify MFA code during login
    */
-  verifyMFA: (
-    tempToken: string,
-    code: string
-  ): Promise<LoginResponse> =>
-    apiClient.post('/api/auth/mfa/verify', { tempToken, code }),
+  verifyMFA: (tempToken: string, code: string): Promise<LoginResponse> =>
+    apiClient.post("/api/auth/mfa/verify", { tempToken, code }),
 
   /**
    * Initiate MFA setup
    */
   initiateMFA: (): Promise<MFASetupResponse> =>
-    apiClient.post('/api/auth/mfa/setup'),
+    apiClient.post("/api/auth/mfa/setup"),
 
   /**
    * Verify MFA setup with code
    */
   verifyMFASetup: (code: string): Promise<{ message: string }> =>
-    apiClient.post('/api/auth/mfa/verify-setup', { code }),
+    apiClient.post("/api/auth/mfa/verify-setup", { code }),
 
   /**
    * Disable MFA
    */
   disableMFA: (password: string): Promise<{ message: string }> =>
-    apiClient.post('/api/auth/mfa/disable', { password }),
-
-  /**
-   * Verify email with token
-   */
-  verifyEmail: (token: string): Promise<{ message: string }> =>
-    apiClient.post('/api/auth/verify-email', { token }),
-
-  /**
-   * Resend verification email
-   */
-  resendVerificationEmail: (): Promise<{ message: string }> =>
-    apiClient.post('/api/auth/resend-verification'),
+    apiClient.post("/api/auth/mfa/disable", { password }),
 
   /**
    * Get user's trusted devices
@@ -152,7 +175,7 @@ export const authService = {
       lastUsed: string;
       trusted: boolean;
     }>;
-  }> => apiClient.get('/api/auth/devices'),
+  }> => apiClient.get("/api/auth/devices"),
 
   /**
    * Trust current device
@@ -161,7 +184,7 @@ export const authService = {
     deviceFingerprint: string,
     deviceName: string
   ): Promise<{ message: string }> =>
-    apiClient.post('/api/auth/devices/trust', {
+    apiClient.post("/api/auth/devices/trust", {
       deviceFingerprint,
       deviceName,
     }),
@@ -184,7 +207,7 @@ export const authService = {
       lastActivity: string;
       current: boolean;
     }>;
-  }> => apiClient.get('/api/auth/sessions'),
+  }> => apiClient.get("/api/auth/sessions"),
 
   /**
    * Logout specific session
@@ -196,7 +219,7 @@ export const authService = {
    * Logout all other sessions
    */
   logoutAllDevices: (): Promise<{ message: string }> =>
-    apiClient.post('/api/auth/sessions/logout-all'),
+    apiClient.post("/api/auth/sessions/logout-all"),
 };
 
 export default authService;

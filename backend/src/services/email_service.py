@@ -1,4 +1,4 @@
-# Create: backend/src/services/email_service.py
+"""Email service for sending verification codes and notifications."""
 
 import aiosmtplib
 from email.mime.text import MIMEText
@@ -15,7 +15,7 @@ settings = get_settings()
 
 
 class EmailService:
-    """Email service for sending verification codes and notifications."""
+    """Email service for Zoho Mail."""
 
     def __init__(self):
         self.smtp_host = settings.smtp.host
@@ -32,7 +32,7 @@ class EmailService:
             html_body: str,
             text_body: Optional[str] = None
     ) -> bool:
-        """Send email via SMTP."""
+        """Send email via SMTP (Zoho Mail)."""
         try:
             # Create message
             message = MIMEMultipart("alternative")
@@ -48,16 +48,38 @@ class EmailService:
             part2 = MIMEText(html_body, "html")
             message.attach(part2)
 
-            # Send email
-            await aiosmtplib.send(
-                message,
-                hostname=self.smtp_host,
-                port=self.smtp_port,
-                username=self.smtp_user,
-                password=self.smtp_password,
-                start_tls=True,
-                use_tls=False
-            )
+            # Send email based on port configuration
+            if self.smtp_port == 587:
+                # Port 587 - STARTTLS (Recommended for Zoho)
+                await aiosmtplib.send(
+                    message,
+                    hostname=self.smtp_host,
+                    port=self.smtp_port,
+                    username=self.smtp_user,
+                    password=self.smtp_password,
+                    start_tls=True,
+                    use_tls=False
+                )
+            elif self.smtp_port == 465:
+                # Port 465 - SSL/TLS (Alternative)
+                await aiosmtplib.send(
+                    message,
+                    hostname=self.smtp_host,
+                    port=self.smtp_port,
+                    username=self.smtp_user,
+                    password=self.smtp_password,
+                    start_tls=False,
+                    use_tls=True
+                )
+            else:
+                # Other ports - default
+                await aiosmtplib.send(
+                    message,
+                    hostname=self.smtp_host,
+                    port=self.smtp_port,
+                    username=self.smtp_user,
+                    password=self.smtp_password
+                )
 
             logger.info("Email sent successfully", to=to_email, subject=subject)
             return True
@@ -67,7 +89,7 @@ class EmailService:
             return False
 
     def generate_verification_code(self, length: int = 6) -> str:
-        """Generate random verification code."""
+        """Generate random 6-digit verification code."""
         return ''.join(random.choices(string.digits, k=length))
 
     async def send_verification_code(
@@ -134,16 +156,6 @@ class EmailService:
                     text-align: center;
                     font-size: 14px;
                     color: #64748b;
-                }}
-                .button {{
-                    display: inline-block;
-                    background: #3b82f6;
-                    color: white;
-                    padding: 12px 30px;
-                    text-decoration: none;
-                    border-radius: 6px;
-                    font-weight: 600;
-                    margin-top: 20px;
                 }}
             </style>
         </head>
@@ -241,12 +253,16 @@ class EmailService:
                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                     line-height: 1.6;
                     color: #333;
+                    margin: 0;
+                    padding: 0;
                 }}
                 .container {{
                     max-width: 600px;
                     margin: 0 auto;
                     background: white;
                     border-radius: 8px;
+                    overflow: hidden;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
                 }}
                 .header {{
                     background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
@@ -254,30 +270,109 @@ class EmailService:
                     padding: 40px 20px;
                     text-align: center;
                 }}
+                .content {{
+                    padding: 40px 30px;
+                }}
+                .button {{
+                    display: inline-block;
+                    background: #3b82f6;
+                    color: white;
+                    padding: 12px 30px;
+                    text-decoration: none;
+                    border-radius: 6px;
+                    margin-top: 20px;
+                }}
+                .footer {{
+                    background: #f8fafc;
+                    padding: 20px;
+                    text-align: center;
+                    font-size: 14px;
+                    color: #64748b;
+                }}
             </style>
         </head>
         <body>
             <div class="container">
                 <div class="header">
-                    <h1>Welcome to Smartkode AI!</h1>
+                    <h1 style="margin:0;">Welcome to Smartkode AI!</h1>
+                    <p style="margin:10px 0 0 0;">Your account is now active</p>
                 </div>
-                <div style="padding: 40px 30px;">
-                    <h2>Hi {user_name}! 👋</h2>
-                    <p>Your account has been successfully verified!</p>
-                    <p>You can now access all features of our AI Calling Platform.</p>
-                    <a href="https://yourapp.com/login" 
-                       style="display:inline-block; background:#3b82f6; color:white; 
-                              padding:12px 30px; text-decoration:none; border-radius:6px; 
-                              margin-top:20px;">
-                        Get Started
-                    </a>
+                <div class="content">
+                    <h2 style="color:#1e293b; margin-top:0;">Hi {user_name}! 👋</h2>
+
+                    <p style="color:#475569; font-size:16px;">
+                        Your email has been successfully verified! You can now access all features 
+                        of our AI Calling Platform.
+                    </p>
+
+                    <p style="color:#475569; font-size:16px;">
+                        Here's what you can do next:
+                    </p>
+
+                    <ul style="color:#475569; font-size:16px;">
+                        <li>Create your first campaign</li>
+                        <li>Import contacts</li>
+                        <li>Start making AI-powered calls</li>
+                        <li>View analytics and reports</li>
+                    </ul>
+
+                    <div style="text-align:center; margin-top:30px;">
+                        <a href="https://yourapp.com/dashboard" class="button">
+                            Go to Dashboard
+                        </a>
+                    </div>
+
+                    <hr style="border:none; border-top:1px solid #e2e8f0; margin:30px 0;">
+
+                    <p style="color:#64748b; font-size:14px; margin:0;">
+                        Need help getting started? Check our 
+                        <a href="https://yourapp.com/docs" style="color:#3b82f6;">documentation</a>
+                        or contact us at 
+                        <a href="mailto:support@smartkode.io" style="color:#3b82f6;">
+                            support@smartkode.io
+                        </a>
+                    </p>
+                </div>
+
+                <div class="footer">
+                    <p style="margin:0;">
+                        © 2025 Smartkode AI. All rights reserved.
+                    </p>
+                    <p style="margin:10px 0 0 0; font-size:12px;">
+                        Enterprise AI Calling Platform
+                    </p>
                 </div>
             </div>
         </body>
         </html>
         """
 
-        return await self.send_email(email, subject, html_body)
+        text_body = f"""
+        Welcome to Smartkode AI!
+
+        Hi {user_name}!
+
+        Your email has been successfully verified! You can now access all features of our AI Calling Platform.
+
+        Here's what you can do next:
+        - Create your first campaign
+        - Import contacts
+        - Start making AI-powered calls
+        - View analytics and reports
+
+        Visit your dashboard: https://yourapp.com/dashboard
+
+        Need help? Contact us at support@smartkode.io
+
+        © 2025 Smartkode AI
+        """
+
+        return await self.send_email(
+            to_email=email,
+            subject=subject,
+            html_body=html_body,
+            text_body=text_body
+        )
 
 
 # Singleton instance

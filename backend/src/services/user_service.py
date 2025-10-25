@@ -1,16 +1,13 @@
-# backend/src/services/user_services.py
-
 """User service for database operations."""
 
 import uuid
 from typing import Optional
+from datetime import datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .email_service import email_service
-from datetime import datetime, timedelta
-
 from ..core.database import User, UserRole
 from ..core.security import hash_password, verify_password
 from ..schemas.user import UserCreate
@@ -39,21 +36,23 @@ class UserService:
 
         # Create user
         user = User(
+            id=uuid.uuid4(),
             email=user_data.email,
             username=user_data.username,
             full_name=user_data.full_name,
             password_hash=hash_password(user_data.password),
+            role=UserRole.USER,
             is_active=False,  # ✅ Inactive until verified
             is_verified=False,
-            verification_code=verification_code,  # ✅ Store code
-            verification_code_expires=datetime.utcnow() + timedelta(minutes=10)  # ✅ 10 min expiry
+            verification_code=verification_code,
+            verification_code_expires=datetime.utcnow() + timedelta(minutes=10)  # 10 min expiry
         )
 
         session.add(user)
         await session.commit()
         await session.refresh(user)
 
-        # ✅ SEND VERIFICATION EMAIL
+        # ✅ Send verification email
         email_sent = await email_service.send_verification_code(
             email=user.email,
             code=verification_code,
@@ -62,6 +61,8 @@ class UserService:
 
         if not email_sent:
             logger.warning("Failed to send verification email", email=user.email)
+
+        logger.info("User created", email=user.email, user_id=str(user.id))
 
         return user, verification_code
 
@@ -74,13 +75,17 @@ class UserService:
         if not user:
             raise InvalidCredentialsError("User not found")
 
+        # Check if already verified
+        if user.is_verified:
+            raise InvalidCredentialsError("Email already verified")
+
         # Check if code matches
         if user.verification_code != code:
             raise InvalidCredentialsError("Invalid verification code")
 
         # Check if code expired
         if user.verification_code_expires < datetime.utcnow():
-            raise InvalidCredentialsError("Verification code expired")
+            raise InvalidCredentialsError("Verification code expired. Please request a new one.")
 
         # Activate user
         user.is_verified = True
@@ -90,43 +95,12 @@ class UserService:
 
         await session.commit()
 
+        logger.info("Email verified", email=user.email)
+
         # Send welcome email
         await email_service.send_welcome_email(user.email, user.full_name or "there")
 
         return True
-
-    # async def create_user(
-    #         self,
-    #         session: AsyncSession,
-    #         user_data: UserCreate
-    # ) -> User:
-    #     """Create a new user."""
-    #
-    #     # Check if user already exists
-    #     existing_user = await self.get_user_by_email(session, user_data.email)
-    #     if existing_user:
-    #         raise UserAlreadyExistsError(f"User with email {user_data.email} already exists")
-    #
-    #     # Hash password
-    #     password_hash = hash_password(user_data.password)
-    #
-    #     # Create user
-    #     user = User(
-    #         id=uuid.uuid4(),
-    #         email=user_data.email,
-    #         username=user_data.username,
-    #         password_hash=password_hash,
-    #         full_name=user_data.full_name,
-    #         role=UserRole.USER,
-    #         is_active=True
-    #     )
-    #
-    #     session.add(user)
-    #     await session.commit()
-    #     await session.refresh(user)
-    #
-    #     logger.info(f"User created: {user.email}")
-    #     return user
 
     async def get_user_by_email(
             self,
@@ -175,12 +149,11 @@ class UserService:
             user_id: uuid.UUID
     ) -> None:
         """Update user's last login timestamp."""
-        from datetime import datetime
-
         user = await self.get_user_by_id(session, user_id)
         if user:
             user.last_login = datetime.utcnow()
             await session.commit()
+            logger.debug("Last login updated", user_id=str(user_id))
 
     async def change_password(
             self,
@@ -199,6 +172,7 @@ class UserService:
             raise InvalidCredentialsError("Current password is incorrect")
 
         user.password_hash = hash_password(new_password)
+        user.updated_at = datetime.utcnow()
         await session.commit()
 
         logger.info(f"Password changed for user: {user.email}")
