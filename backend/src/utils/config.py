@@ -65,6 +65,20 @@ class TwilioSettings(BaseSettings):
         extra="ignore"
     )
 
+class SMTPSettings(BaseSettings):
+    """SMTP (Email) configuration."""
+    host: str = Field(..., alias="SMTP_HOST")
+    port: int = Field(..., alias="SMTP_PORT")
+    user: str = Field(..., alias="SMTP_USER")
+    password: str = Field(..., alias="SMTP_PASSWORD")
+    from_email: str = Field(..., alias="SMTP_FROM_EMAIL")
+    from_name: str = Field("AI Agent", alias="SMTP_FROM_NAME")
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore"
+    )
 
 class APISettings(BaseSettings):
     """API server configuration."""
@@ -131,6 +145,7 @@ class Settings(BaseSettings):
     jwt: JWTSettings = Field(default_factory=JWTSettings)
     redis: Optional[RedisSettings] = Field(default=None)
     twilio: TwilioSettings = Field(default_factory=TwilioSettings)
+    smtp: SMTPSettings = Field(default_factory=SMTPSettings)
     api: APISettings = Field(default_factory=APISettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
     external_apis: ExternalAPISettings = Field(default_factory=ExternalAPISettings)

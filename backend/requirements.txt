@@ -92,3 +92,4 @@ ipython==8.20.0    # Better REPL
 # ===========================================
 
 tiktoken # for db
+aiosmtplib # for verification code sending

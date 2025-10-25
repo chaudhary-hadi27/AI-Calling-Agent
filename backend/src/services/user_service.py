@@ -1,3 +1,5 @@
+# backend/src/services/user_services.py
+
 """User service for database operations."""
 
 import uuid
@@ -5,6 +7,9 @@ from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from .email_service import email_service
+from datetime import datetime, timedelta
 
 from ..core.database import User, UserRole
 from ..core.security import hash_password, verify_password
@@ -18,38 +23,110 @@ logger = get_logger(__name__)
 class UserService:
     """Service for user operations."""
 
-    async def create_user(
-            self,
-            session: AsyncSession,
-            user_data: UserCreate
-    ) -> User:
-        """Create a new user."""
+    async def create_user(self, session: AsyncSession, user_data: UserCreate) -> tuple[User, str]:
+        """Create new user and send verification code."""
 
-        # Check if user already exists
-        existing_user = await self.get_user_by_email(session, user_data.email)
-        if existing_user:
+        # Check if user exists
+        existing = await session.scalar(
+            select(User).where(User.email == user_data.email)
+        )
+
+        if existing:
             raise UserAlreadyExistsError(f"User with email {user_data.email} already exists")
 
-        # Hash password
-        password_hash = hash_password(user_data.password)
+        # Generate verification code
+        verification_code = email_service.generate_verification_code()
 
         # Create user
         user = User(
-            id=uuid.uuid4(),
             email=user_data.email,
             username=user_data.username,
-            password_hash=password_hash,
             full_name=user_data.full_name,
-            role=UserRole.USER,
-            is_active=True
+            password_hash=hash_password(user_data.password),
+            is_active=False,  # ✅ Inactive until verified
+            is_verified=False,
+            verification_code=verification_code,  # ✅ Store code
+            verification_code_expires=datetime.utcnow() + timedelta(minutes=10)  # ✅ 10 min expiry
         )
 
         session.add(user)
         await session.commit()
         await session.refresh(user)
 
-        logger.info(f"User created: {user.email}")
-        return user
+        # ✅ SEND VERIFICATION EMAIL
+        email_sent = await email_service.send_verification_code(
+            email=user.email,
+            code=verification_code,
+            user_name=user.full_name
+        )
+
+        if not email_sent:
+            logger.warning("Failed to send verification email", email=user.email)
+
+        return user, verification_code
+
+    async def verify_email(self, session: AsyncSession, email: str, code: str) -> bool:
+        """Verify email with code."""
+        user = await session.scalar(
+            select(User).where(User.email == email)
+        )
+
+        if not user:
+            raise InvalidCredentialsError("User not found")
+
+        # Check if code matches
+        if user.verification_code != code:
+            raise InvalidCredentialsError("Invalid verification code")
+
+        # Check if code expired
+        if user.verification_code_expires < datetime.utcnow():
+            raise InvalidCredentialsError("Verification code expired")
+
+        # Activate user
+        user.is_verified = True
+        user.is_active = True
+        user.verification_code = None
+        user.verification_code_expires = None
+
+        await session.commit()
+
+        # Send welcome email
+        await email_service.send_welcome_email(user.email, user.full_name or "there")
+
+        return True
+
+    # async def create_user(
+    #         self,
+    #         session: AsyncSession,
+    #         user_data: UserCreate
+    # ) -> User:
+    #     """Create a new user."""
+    #
+    #     # Check if user already exists
+    #     existing_user = await self.get_user_by_email(session, user_data.email)
+    #     if existing_user:
+    #         raise UserAlreadyExistsError(f"User with email {user_data.email} already exists")
+    #
+    #     # Hash password
+    #     password_hash = hash_password(user_data.password)
+    #
+    #     # Create user
+    #     user = User(
+    #         id=uuid.uuid4(),
+    #         email=user_data.email,
+    #         username=user_data.username,
+    #         password_hash=password_hash,
+    #         full_name=user_data.full_name,
+    #         role=UserRole.USER,
+    #         is_active=True
+    #     )
+    #
+    #     session.add(user)
+    #     await session.commit()
+    #     await session.refresh(user)
+    #
+    #     logger.info(f"User created: {user.email}")
+    #     return user
 
     async def get_user_by_email(
             self,

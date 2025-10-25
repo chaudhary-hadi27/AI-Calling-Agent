@@ -1,3 +1,5 @@
+# backend/src/core/database.py
+
 """Database configuration and models."""
 
 import enum
@@ -10,6 +12,7 @@ from sqlalchemy import (
     Boolean, DateTime, Enum, Float, ForeignKey, Integer,
     JSON, String, Text, create_engine
 )
+from sqlalchemy import Column
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -97,6 +100,11 @@ class User(Base):
 
     # Relationships
     campaigns: Mapped[list["Campaign"]] = relationship("Campaign", back_populates="created_by")
+
+    # Verification Code
+
+    verification_code = Column(String(6), nullable=True)
+    verification_code_expires = Column(DateTime, nullable=True)
 
 
 # ============================================
