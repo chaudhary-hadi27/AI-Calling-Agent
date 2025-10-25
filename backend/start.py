@@ -26,12 +26,15 @@ async def check_dependencies():
     # Check database connection
     try:
         from src.core.database import db_manager
+
         db_manager.init_db()
 
-        async with db_manager.get_session() as session:
-            await session.execute("SELECT 1")
-
-        logger.info("Database connection successful")
+        # ✅ FIX: Use the helper method
+        if await db_manager.check_connection():
+            logger.info("Database connection successful")
+        else:
+            logger.error("Database connection failed")
+            return False
     except Exception as e:
         logger.error("Database connection failed", error=str(e))
         return False

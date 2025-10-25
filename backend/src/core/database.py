@@ -1,6 +1,7 @@
 """Database configuration and models."""
 
 import enum
+import ssl
 import uuid
 from datetime import datetime
 from typing import AsyncGenerator, Optional
@@ -86,7 +87,7 @@ class User(Base):
     mfa_secret: Mapped[Optional[str]] = mapped_column(String(255))
     backup_codes: Mapped[Optional[dict]] = mapped_column(JSON, default={})
 
-    # ✅ FIX: Renamed from 'metadata' to 'extra_data'
+    # Extra data
     extra_data: Mapped[Optional[dict]] = mapped_column(JSON, default={})
 
     # Timestamps
@@ -113,7 +114,7 @@ class Contact(Base):
     last_name: Mapped[Optional[str]] = mapped_column(String(100))
     email: Mapped[Optional[str]] = mapped_column(String(255))
 
-    # ✅ FIX: Renamed from 'metadata' to 'extra_data'
+    # Extra data
     extra_data: Mapped[Optional[dict]] = mapped_column(JSON, default={})
 
     # Timestamps
@@ -237,7 +238,7 @@ class Call(Base):
     # Technical details
     error_message: Mapped[Optional[str]] = mapped_column(Text)
 
-    # ✅ FIX: Renamed from 'provider_data' to avoid any metadata confusion
+    # Provider info
     provider_info: Mapped[Optional[dict]] = mapped_column(JSON, default={})
 
     # Timestamps
@@ -277,7 +278,7 @@ class CallLog(Base):
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     duration_ms: Mapped[Optional[int]] = mapped_column(Integer)
 
-    # ✅ FIX: Renamed from 'metadata' to 'extra_data'
+    # Extra data
     extra_data: Mapped[Optional[dict]] = mapped_column(JSON, default={})
 
     # Relationships
@@ -296,12 +297,20 @@ class DatabaseManager:
         self.async_session_factory = None
 
     def init_db(self) -> None:
-        """Initialize database connection."""
+        """Initialize database connection with SSL support for Neon."""
+        # ✅ Create SSL context for Neon database
+        ssl_context = ssl.create_default_context()
+
+        # ✅ Remove ?sslmode=require from URL (we'll pass it via connect_args)
+        db_url = settings.database.url.replace("?sslmode=require", "")
+
+        # ✅ Initialize async engine with SSL args
         self.engine = create_async_engine(
-            settings.database.url,
+            db_url,
             echo=settings.database.echo,
             pool_size=settings.database.pool_size,
             max_overflow=settings.database.max_overflow,
+            connect_args={"ssl": ssl_context},  # SSL for Neon
         )
 
         self.async_session_factory = async_sessionmaker(
@@ -310,55 +319,35 @@ class DatabaseManager:
             expire_on_commit=False,
         )
 
-        logger.info("Database connection initialized", url=settings.database.url.split('@')[-1])  # Hide credentials
-
-    # import ssl
-    #
-    # class DatabaseManager:
-    #     """Database connection and session manager."""
-    #
-    #     def __init__(self):
-    #         self.engine = None
-    #         self.async_session_factory = None
-    #
-    #     def init_db(self) -> None:
-    #         """Initialize database connection with SSL."""
-    #         # ✅ Create SSL context (Neon requires SSL)
-    #         ssl_context = ssl.create_default_context()
-    #
-    #         # ✅ Remove ?sslmode=require from the URL if present
-    #         db_url = settings.database.url.replace("?sslmode=require", "")
-    #
-    #         # ✅ Initialize async engine with SSL args
-    #         self.engine = create_async_engine(
-    #             db_url,
-    #             echo=settings.database.echo,
-    #             pool_size=settings.database.pool_size,
-    #             max_overflow=settings.database.max_overflow,
-    #             connect_args={"ssl": ssl_context},  # <-- the fix
-    #         )
-    #
-    #         self.async_session_factory = async_sessionmaker(
-    #             self.engine,
-    #             class_=AsyncSession,
-    #             expire_on_commit=False,
-    #         )
-    #
-    #         logger.info("Database connection initialized", url=db_url.split('@')[-1])  # Hide credentials
+        logger.info("Database connection initialized", url=db_url.split('@')[-1])
 
     async def get_session(self) -> AsyncGenerator[AsyncSession, None]:
         """Get async database session."""
         if not self.async_session_factory:
             raise RuntimeError("Database not initialized. Call init_db() first.")
 
-        async with self.async_session_factory() as session:
-            try:
-                yield session
-            except Exception:
-                await session.rollback()
-                raise
-            finally:
-                await session.close()
+        # ✅ FIX: Properly instantiate and manage session
+        session = self.async_session_factory()
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+
+    async def check_connection(self) -> bool:
+        """Check if database connection is working."""
+        try:
+            from sqlalchemy import text
+
+            async for session in self.get_session():
+                await session.execute(text("SELECT 1"))
+                return True
+        except Exception as e:
+            logger.error("Database connection check failed", error=str(e))
+            return False
 
     async def close(self) -> None:
         """Close database connection."""
