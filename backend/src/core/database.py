@@ -312,6 +312,40 @@ class DatabaseManager:
 
         logger.info("Database connection initialized", url=settings.database.url.split('@')[-1])  # Hide credentials
 
+    # import ssl
+    #
+    # class DatabaseManager:
+    #     """Database connection and session manager."""
+    #
+    #     def __init__(self):
+    #         self.engine = None
+    #         self.async_session_factory = None
+    #
+    #     def init_db(self) -> None:
+    #         """Initialize database connection with SSL."""
+    #         # ✅ Create SSL context (Neon requires SSL)
+    #         ssl_context = ssl.create_default_context()
+    #
+    #         # ✅ Remove ?sslmode=require from the URL if present
+    #         db_url = settings.database.url.replace("?sslmode=require", "")
+    #
+    #         # ✅ Initialize async engine with SSL args
+    #         self.engine = create_async_engine(
+    #             db_url,
+    #             echo=settings.database.echo,
+    #             pool_size=settings.database.pool_size,
+    #             max_overflow=settings.database.max_overflow,
+    #             connect_args={"ssl": ssl_context},  # <-- the fix
+    #         )
+    #
+    #         self.async_session_factory = async_sessionmaker(
+    #             self.engine,
+    #             class_=AsyncSession,
+    #             expire_on_commit=False,
+    #         )
+    #
+    #         logger.info("Database connection initialized", url=db_url.split('@')[-1])  # Hide credentials
+
     async def get_session(self) -> AsyncGenerator[AsyncSession, None]:
         """Get async database session."""
         if not self.async_session_factory:

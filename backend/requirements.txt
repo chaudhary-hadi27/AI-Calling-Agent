@@ -8,8 +8,9 @@ python-multipart==0.0.6
 # ============================================
 # DATABASE & ORM
 # ============================================
-sqlalchemy==2.0.25
 alembic==1.13.1
+asyncpg==0.29.0
+sqlalchemy[asyncio]==2.0.23
 
 # PostgreSQL Drivers (for Neon)
 asyncpg==0.29.0          # Async PostgreSQL driver (PRIMARY)
@@ -84,3 +85,8 @@ black==24.1.1      # Code formatter
 flake8==7.0.0      # Linter
 mypy==1.8.0        # Type checker
 ipython==8.20.0    # Better REPL
+
+
+# ============================================
+# Additionals
+# ===========================================
