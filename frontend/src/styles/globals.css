@@ -1,7 +1,7 @@
 /* ============================================
    SMARTKODE AI CALLING PLATFORM
-   PHASE 1: PROFESSIONAL ENTERPRISE THEME
-   Default: Enterprise Dark
+   UNIFIED PROFESSIONAL WHITE THEME
+   Matches Landing Page Design
    ============================================ */
 
 @import "tailwindcss/theme" theme(reference);
@@ -11,35 +11,55 @@
 @layer theme {
   :root {
     /* ============================================
-       PRIMARY PALETTE - Professional Blue
+       PRIMARY BLUE PALETTE
        ============================================ */
     --color-primary-50: #eff6ff;
     --color-primary-100: #dbeafe;
     --color-primary-200: #bfdbfe;
     --color-primary-300: #93c5fd;
     --color-primary-400: #60a5fa;
-    --color-primary-500: #3b82f6;  /* Main brand color */
-    --color-primary-600: #2563eb;
+    --color-primary-500: #3b82f6;
+    --color-primary-600: #2563eb;  /* Main brand color */
     --color-primary-700: #1d4ed8;
     --color-primary-800: #1e40af;
     --color-primary-900: #1e3a8a;
 
     /* ============================================
-       ACCENT PALETTE - Cyan (Live States Only)
+       BACKGROUND COLORS - WHITE THEME
        ============================================ */
-    --color-accent-50: #ecfeff;
-    --color-accent-100: #cffafe;
-    --color-accent-200: #a5f3fc;
-    --color-accent-300: #67e8f9;
-    --color-accent-400: #22d3ee;
-    --color-accent-500: #06b6d4;  /* Live indicators */
-    --color-accent-600: #0891b2;
-    --color-accent-700: #0e7490;
-    --color-accent-800: #155e75;
-    --color-accent-900: #164e63;
+    --color-bg-primary: #ffffff;        /* Main background */
+    --color-bg-secondary: #f8fafc;      /* Slate-50 - Cards */
+    --color-bg-tertiary: #f1f5f9;       /* Slate-100 - Elevated */
 
     /* ============================================
-       STATUS COLORS - Clean & Clear
+       SURFACE COLORS - CARDS & CONTAINERS
+       ============================================ */
+    --color-surface-primary: #ffffff;       /* Cards */
+    --color-surface-secondary: #f8fafc;     /* Nested cards */
+    --color-surface-tertiary: #f1f5f9;      /* Highest elevation */
+    --color-surface-hover: #f1f5f9;         /* Hover state */
+    --color-surface-active: #e2e8f0;        /* Active/pressed */
+
+    /* ============================================
+       BORDER SYSTEM
+       ============================================ */
+    --color-border-primary: #e2e8f0;        /* Slate-200 */
+    --color-border-secondary: #cbd5e1;      /* Slate-300 */
+    --color-border-tertiary: #94a3b8;       /* Slate-400 */
+    --color-border-hover: #2563eb;          /* Primary blue */
+    --color-border-focus: #3b82f6;          /* Primary-500 */
+
+    /* ============================================
+       TEXT HIERARCHY
+       ============================================ */
+    --color-text-primary: #0f172a;      /* Slate-900 - Headings */
+    --color-text-secondary: #475569;    /* Slate-600 - Body */
+    --color-text-tertiary: #64748b;     /* Slate-500 - Labels */
+    --color-text-quaternary: #94a3b8;   /* Slate-400 - Disabled */
+    --color-text-inverse: #ffffff;      /* White text on dark BG */
+
+    /* ============================================
+       STATUS COLORS
        ============================================ */
 
     /* Success - Green */
@@ -78,75 +98,55 @@
     --color-error-800: #991b1b;
     --color-error-900: #7f1d1d;
 
-    /* Info - Sky Blue */
-    --color-info-50: #f0f9ff;
-    --color-info-100: #e0f2fe;
-    --color-info-200: #bae6fd;
-    --color-info-300: #7dd3fc;
-    --color-info-400: #38bdf8;
-    --color-info-500: #0ea5e9;
-    --color-info-600: #0284c7;
-    --color-info-700: #0369a1;
-    --color-info-800: #075985;
-    --color-info-900: #0c4a6e;
+    /* Info - Blue */
+    --color-info-50: #eff6ff;
+    --color-info-100: #dbeafe;
+    --color-info-200: #bfdbfe;
+    --color-info-300: #93c5fd;
+    --color-info-400: #60a5fa;
+    --color-info-500: #3b82f6;
+    --color-info-600: #2563eb;
+    --color-info-700: #1d4ed8;
+    --color-info-800: #1e40af;
+    --color-info-900: #1e3a8a;
+
+    /* Accent - Cyan (for special highlights) */
+    --color-accent-50: #ecfeff;
+    --color-accent-100: #cffafe;
+    --color-accent-200: #a5f3fc;
+    --color-accent-300: #67e8f9;
+    --color-accent-400: #22d3ee;
+    --color-accent-500: #06b6d4;
+    --color-accent-600: #0891b2;
+    --color-accent-700: #0e7490;
+    --color-accent-800: #155e75;
+    --color-accent-900: #164e63;
+
+    /* Secondary - Purple (optional) */
+    --color-secondary-50: #faf5ff;
+    --color-secondary-100: #f3e8ff;
+    --color-secondary-200: #e9d5ff;
+    --color-secondary-300: #d8b4fe;
+    --color-secondary-400: #c084fc;
+    --color-secondary-500: #a855f7;
+    --color-secondary-600: #9333ea;
+    --color-secondary-700: #7e22ce;
+    --color-secondary-800: #6b21a8;
+    --color-secondary-900: #581c87;
 
     /* ============================================
-       BACKGROUND LAYERS - Enterprise Dark
-       ============================================ */
-    --color-bg-primary: #0f172a;      /* Slate 900 - Main background */
-    --color-bg-secondary: #1e293b;    /* Slate 800 - Cards */
-    --color-bg-tertiary: #334155;     /* Slate 700 - Elevated */
-    --color-bg-quaternary: #475569;   /* Slate 600 - Modals */
-
-    /* ============================================
-       SURFACE COLORS - Professional & Clean
-       ============================================ */
-    --color-surface-primary: #1e293b;        /* Cards */
-    --color-surface-secondary: #334155;      /* Elevated cards */
-    --color-surface-tertiary: #475569;       /* Highest elevation */
-    --color-surface-hover: #293548;          /* Hover state */
-    --color-surface-active: #374253;         /* Active/pressed */
-
-    /* ============================================
-       BORDER SYSTEM - Subtle Definition
-       ============================================ */
-    --color-border-primary: #334155;         /* Slate 700 */
-    --color-border-secondary: #475569;       /* Slate 600 */
-    --color-border-tertiary: #64748b;        /* Slate 500 */
-    --color-border-hover: #3b82f6;           /* Primary blue */
-    --color-border-focus: #60a5fa;           /* Primary 400 */
-
-    /* ============================================
-       TEXT HIERARCHY - High Contrast
-       ============================================ */
-    --color-text-primary: #f1f5f9;       /* Slate 100 - Headings */
-    --color-text-secondary: #cbd5e1;     /* Slate 300 - Body */
-    --color-text-tertiary: #94a3b8;      /* Slate 400 - Labels */
-    --color-text-quaternary: #64748b;    /* Slate 500 - Disabled */
-    --color-text-inverse: #0f172a;       /* Dark text for light BG */
-
-    /* ============================================
-       SHADOW SYSTEM - Professional Depth
+       SHADOW SYSTEM
        ============================================ */
     --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
-    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
-    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
-    --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.15);
-    --shadow-xl: 0 16px 32px rgba(0, 0, 0, 0.2);
-    --shadow-2xl: 0 24px 48px rgba(0, 0, 0, 0.25);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);
+    --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.1), 0 10px 10px rgba(0, 0, 0, 0.04);
+    --shadow-2xl: 0 25px 50px rgba(0, 0, 0, 0.15);
     --shadow-inner: inset 0 2px 4px rgba(0, 0, 0, 0.06);
 
-    /* Only ONE glow - for live indicators */
-    --glow-live: 0 0 12px rgba(34, 211, 238, 0.6);
-
     /* ============================================
-       PROFESSIONAL GRADIENTS - Minimal Use
-       ============================================ */
-    --gradient-primary: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-    --gradient-surface: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
-
-    /* ============================================
-       SPACING & SIZING (Same as before)
+       BORDER RADIUS
        ============================================ */
     --radius-sm: 0.375rem;   /* 6px */
     --radius-md: 0.5rem;     /* 8px */
@@ -176,13 +176,6 @@
     --duration-slow: 300ms;
     --ease-out: cubic-bezier(0, 0, 0.2, 1);
     --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
-
-    /* ============================================
-       OVERLAY COLORS
-       ============================================ */
-    --overlay-dark: rgba(0, 0, 0, 0.4);
-    --overlay-darker: rgba(0, 0, 0, 0.6);
-    --overlay-backdrop: rgba(15, 23, 42, 0.8);
   }
 }
 
@@ -207,7 +200,7 @@
     line-height: 1.6;
   }
 
-  /* Clean scrollbar */
+  /* Scrollbar Styling */
   ::-webkit-scrollbar {
     @apply w-2 h-2;
   }
@@ -227,13 +220,13 @@
 
   /* Selection */
   ::selection {
-    background: rgba(59, 130, 246, 0.3);
+    background: rgba(37, 99, 235, 0.2);
     color: var(--color-text-primary);
   }
 
-  /* Focus styles */
+  /* Focus Styles */
   *:focus-visible {
-    outline: 2px solid var(--color-primary-500);
+    outline: 2px solid var(--color-primary-600);
     outline-offset: 2px;
   }
 }
@@ -242,80 +235,77 @@
    UTILITY CLASSES
    ============================================ */
 @layer utilities {
-  /* Professional card */
+  /* Professional Card */
   .card-professional {
     background: var(--color-surface-primary);
     border: 1px solid var(--color-border-primary);
     border-radius: var(--radius-xl);
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-sm);
     transition: all var(--duration-base) var(--ease-out);
   }
 
   .card-professional:hover {
-    border-color: var(--color-border-hover);
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--shadow-md);
   }
 
-  /* Live indicator - ONLY glow in entire app */
-  .live-indicator {
-    width: 10px;
-    height: 10px;
-    background: var(--color-accent-400);
-    border-radius: 50%;
-    box-shadow: var(--glow-live);
-    animation: pulse-live 2s ease-in-out infinite;
-  }
-
-  @keyframes pulse-live {
-    0%, 100% {
-      opacity: 1;
-      transform: scale(1);
-    }
-    50% {
-      opacity: 0.8;
-      transform: scale(1.1);
-    }
-  }
-
-  /* Button base */
+  /* Button Base */
   .btn {
     padding: 0.625rem 1.25rem;
     border-radius: var(--radius-lg);
     font-weight: 600;
     transition: all var(--duration-base) var(--ease-out);
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
   }
 
   .btn-primary {
-    background: var(--color-primary-500);
+    background: var(--color-primary-600);
     color: white;
     border: none;
   }
 
   .btn-primary:hover {
-    background: var(--color-primary-600);
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-lg);
+    background: var(--color-primary-700);
+    box-shadow: var(--shadow-md);
   }
 
   .btn-primary:active {
-    transform: translateY(0);
+    background: var(--color-primary-800);
   }
 
-  /* Input base */
+  .btn-secondary {
+    background: var(--color-surface-primary);
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border-primary);
+  }
+
+  .btn-secondary:hover {
+    background: var(--color-surface-hover);
+    border-color: var(--color-border-secondary);
+  }
+
+  /* Input Base */
   .input-professional {
-    background: var(--color-bg-secondary);
+    background: var(--color-bg-primary);
     border: 1px solid var(--color-border-primary);
     border-radius: var(--radius-lg);
     padding: 0.75rem 1rem;
     color: var(--color-text-primary);
     transition: all var(--duration-base) var(--ease-out);
+    width: 100%;
   }
 
   .input-professional:focus {
-    border-color: var(--color-primary-500);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    border-color: var(--color-primary-600);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
     outline: none;
+  }
+
+  .input-professional::placeholder {
+    color: var(--color-text-quaternary);
   }
 
   /* Animations */
@@ -349,10 +339,25 @@
     }
   }
 
-  /* Loading spinner */
+  .animate-slide-down {
+    animation: slideDown 0.3s ease-out;
+  }
+
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Loading Spinner */
   .spinner {
-    border: 3px solid var(--color-surface-tertiary);
-    border-top-color: var(--color-primary-500);
+    border: 3px solid var(--color-border-primary);
+    border-top-color: var(--color-primary-600);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
@@ -360,13 +365,189 @@
   @keyframes spin {
     to { transform: rotate(360deg); }
   }
+
+  /* Status Badge */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--radius-full);
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .badge-success {
+    background: var(--color-success-100);
+    color: var(--color-success-700);
+    border: 1px solid var(--color-success-200);
+  }
+
+  .badge-error {
+    background: var(--color-error-100);
+    color: var(--color-error-700);
+    border: 1px solid var(--color-error-200);
+  }
+
+  .badge-warning {
+    background: var(--color-warning-100);
+    color: var(--color-warning-700);
+    border: 1px solid var(--color-warning-200);
+  }
+
+  .badge-info {
+    background: var(--color-info-100);
+    color: var(--color-info-700);
+    border: 1px solid var(--color-info-200);
+  }
+
+  /* Live Indicator */
+  .live-indicator {
+    width: 8px;
+    height: 8px;
+    background: var(--color-success-500);
+    border-radius: 50%;
+    animation: pulse-live 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-live {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.8;
+      transform: scale(1.1);
+    }
+  }
+
+  /* Gradient Text */
+  .gradient-text {
+    background: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-accent-500) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Glass Effect (Subtle) */
+  .glass {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
 }
 
 /* ============================================
-   REMOVE: All neon/glow/glass effects
+   COMPONENT SPECIFIC STYLES
    ============================================ */
-/* NO neural grids */
-/* NO gradient borders */
-/* NO heavy glass morphism */
-/* NO multiple glows */
-/* Clean, professional, enterprise-grade */
+
+/* Toast Notifications */
+.toast-container {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.toast {
+  min-width: 300px;
+  max-width: 400px;
+  padding: 1rem;
+  background: var(--color-surface-primary);
+  border: 1px solid var(--color-border-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Modal Backdrop */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: var(--z-modal-backdrop);
+  animation: fadeIn 0.2s ease-out;
+}
+
+/* Skeleton Loading */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-secondary) 25%,
+    var(--color-bg-tertiary) 50%,
+    var(--color-bg-secondary) 75%
+  );
+  background-size: 200% 100%;
+  animation: loading 1.5s ease-in-out infinite;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Form Error Message */
+.form-error {
+  color: var(--color-error-600);
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* Form Helper Text */
+.form-helper {
+  color: var(--color-text-tertiary);
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+}
+
+/* Divider */
+.divider {
+  height: 1px;
+  background: var(--color-border-primary);
+  margin: 1.5rem 0;
+}
+
+/* Section */
+.section {
+  padding: 5rem 0;
+}
+
+.section-header {
+  text-align: center;
+  margin-bottom: 4rem;
+}
+
+.section-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: 1rem;
+}
+
+.section-description {
+  font-size: 1.25rem;
+  color: var(--color-text-secondary);
+  max-width: 48rem;
+  margin: 0 auto;
+}

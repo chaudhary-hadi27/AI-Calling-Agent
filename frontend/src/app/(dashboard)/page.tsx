@@ -1,99 +1,176 @@
+// frontend/src/app/(dashboard)/page.tsx
+// ✅ BASIC: Simple dashboard to test login redirect
+
+"use client";
+
+import { useAuthStore } from "@/lib/store/authStore";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { authService } from "@/lib/api/services/auth.service";
+import { useToast } from "@/hooks/useToast";
+
 export default function DashboardPage() {
+  const { user, logout } = useAuthStore();
+  const router = useRouter();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    // Verify authentication
+    if (!user) {
+      router.push("/login");
+    }
+  }, [user, router]);
+
+  const handleLogout = async () => {
+    try {
+      await authService.logout();
+      logout();
+      toast.success("Logged out successfully");
+      router.push("/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast.error("Logout failed");
+    }
+  };
+
+  if (!user) {
+    return null; // Will redirect in useEffect
+  }
+
   return (
-    <div>
-      <h1 className="text-3xl font-bold text-[var(--color-text-primary)] mb-6">
-        Dashboard Overview
-      </h1>
+    <div className="p-8">
+      {/* Welcome Header */}
+      <div className="mb-8">
+        <h1 className="text-4xl font-bold text-[var(--color-text-primary)] mb-2">
+          Welcome back, {user.full_name || user.email}! 👋
+        </h1>
+        <p className="text-[var(--color-text-secondary)] text-lg">
+          You're successfully logged in to your Smartkode AI dashboard
+        </p>
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Stat Card 1 */}
-        <div className="bg-[var(--color-surface-primary)] border border-[var(--color-border-primary)] p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-[var(--color-text-secondary)] text-sm font-medium">
-              Total Calls
-            </h3>
-            <div className="w-10 h-10 bg-[var(--color-primary-500)]/20 rounded-lg flex items-center justify-center">
-              <span className="text-xl">📞</span>
+      {/* User Info Card */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="bg-[var(--color-surface-primary)] border border-[var(--color-border-primary)] rounded-xl p-6 shadow-lg">
+          <h2 className="text-xl font-bold text-[var(--color-text-primary)] mb-4 flex items-center gap-2">
+            <svg
+              className="w-6 h-6 text-[var(--color-primary-500)]"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+              />
+            </svg>
+            Your Profile
+          </h2>
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm text-[var(--color-text-tertiary)] mb-1">Email</p>
+              <p className="text-[var(--color-text-primary)] font-medium">{user.email}</p>
             </div>
-          </div>
-          <p className="text-4xl font-bold text-[var(--color-text-primary)] mb-2">
-            1,234
-          </p>
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-[var(--color-success-500)]">↑ 12%</span>
-            <span className="text-[var(--color-text-tertiary)]">vs last month</span>
+            <div>
+              <p className="text-sm text-[var(--color-text-tertiary)] mb-1">Name</p>
+              <p className="text-[var(--color-text-primary)] font-medium">
+                {user.full_name || "Not set"}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-[var(--color-text-tertiary)] mb-1">Role</p>
+              <p className="text-[var(--color-text-primary)] font-medium capitalize">
+                {user.role}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-[var(--color-text-tertiary)] mb-1">
+                Verification Status
+              </p>
+              <div className="flex items-center gap-2">
+                {user.is_verified ? (
+                  <>
+                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                    <span className="text-green-600 font-medium">Verified</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
+                    <span className="text-yellow-600 font-medium">Pending</span>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Stat Card 2 */}
-        <div className="bg-[var(--color-surface-primary)] border border-[var(--color-border-primary)] p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-[var(--color-text-secondary)] text-sm font-medium">
-              Active Calls
-            </h3>
-            <div className="w-10 h-10 bg-[var(--color-secondary-500)]/20 rounded-lg flex items-center justify-center">
-              <span className="text-xl">🔴</span>
+        {/* Quick Stats */}
+        <div className="bg-[var(--color-surface-primary)] border border-[var(--color-border-primary)] rounded-xl p-6 shadow-lg">
+          <h2 className="text-xl font-bold text-[var(--color-text-primary)] mb-4 flex items-center gap-2">
+            <svg
+              className="w-6 h-6 text-[var(--color-primary-500)]"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+              />
+            </svg>
+            Quick Stats
+          </h2>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-3 bg-[var(--color-bg-secondary)] rounded-lg">
+              <span className="text-[var(--color-text-secondary)]">Total Calls</span>
+              <span className="text-2xl font-bold text-[var(--color-text-primary)]">0</span>
             </div>
-          </div>
-          <p className="text-4xl font-bold text-[var(--color-text-primary)] mb-2">
-            12
-          </p>
-          <div className="flex items-center gap-2 text-sm">
-            <span className="w-2 h-2 bg-[var(--color-success-500)] rounded-full animate-pulse"></span>
-            <span className="text-[var(--color-text-tertiary)]">Live now</span>
-          </div>
-        </div>
-
-        {/* Stat Card 3 */}
-        <div className="bg-[var(--color-surface-primary)] border border-[var(--color-border-primary)] p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-[var(--color-text-secondary)] text-sm font-medium">
-              Success Rate
-            </h3>
-            <div className="w-10 h-10 bg-[var(--color-success-500)]/20 rounded-lg flex items-center justify-center">
-              <span className="text-xl">✓</span>
+            <div className="flex items-center justify-between p-3 bg-[var(--color-bg-secondary)] rounded-lg">
+              <span className="text-[var(--color-text-secondary)]">Active Campaigns</span>
+              <span className="text-2xl font-bold text-[var(--color-text-primary)]">0</span>
             </div>
-          </div>
-          <p className="text-4xl font-bold text-[var(--color-text-primary)] mb-2">
-            87%
-          </p>
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-[var(--color-success-500)]">↑ 5%</span>
-            <span className="text-[var(--color-text-tertiary)]">vs last month</span>
-          </div>
-        </div>
-
-        {/* Stat Card 4 */}
-        <div className="bg-[var(--color-surface-primary)] border border-[var(--color-border-primary)] p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-[var(--color-text-secondary)] text-sm font-medium">
-              Avg Duration
-            </h3>
-            <div className="w-10 h-10 bg-[var(--color-accent-500)]/20 rounded-lg flex items-center justify-center">
-              <span className="text-xl">⏱️</span>
+            <div className="flex items-center justify-between p-3 bg-[var(--color-bg-secondary)] rounded-lg">
+              <span className="text-[var(--color-text-secondary)]">Contacts</span>
+              <span className="text-2xl font-bold text-[var(--color-text-primary)]">0</span>
             </div>
-          </div>
-          <p className="text-4xl font-bold text-[var(--color-text-primary)] mb-2">
-            3m 24s
-          </p>
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-[var(--color-error-500)]">↓ 8s</span>
-            <span className="text-[var(--color-text-tertiary)]">vs last month</span>
           </div>
         </div>
       </div>
 
-      {/* Recent Activity */}
-      <div className="mt-8 bg-[var(--color-surface-primary)] border border-[var(--color-border-primary)] rounded-xl shadow-lg p-6">
+      {/* Actions */}
+      <div className="bg-[var(--color-surface-primary)] border border-[var(--color-border-primary)] rounded-xl p-6 shadow-lg">
         <h2 className="text-xl font-bold text-[var(--color-text-primary)] mb-4">
-          Recent Activity
+          Quick Actions
         </h2>
-        <div className="space-y-4">
-          <p className="text-[var(--color-text-secondary)]">
-            Your recent calls and activities will appear here...
-          </p>
+        <div className="flex gap-4">
+          <button className="px-6 py-3 bg-[var(--color-primary-600)] text-white rounded-lg hover:bg-[var(--color-primary-700)] transition-colors font-medium">
+            Create Campaign
+          </button>
+          <button className="px-6 py-3 bg-[var(--color-surface-secondary)] text-[var(--color-text-primary)] rounded-lg hover:bg-[var(--color-surface-tertiary)] transition-colors font-medium border border-[var(--color-border-primary)]">
+            Add Contact
+          </button>
+          <button
+            onClick={handleLogout}
+            className="px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium"
+          >
+            Logout
+          </button>
         </div>
       </div>
+
+      {/* Debug Info (Development) */}
+      {process.env.NODE_ENV === "development" && (
+        <div className="mt-8 p-4 bg-gray-100 border border-gray-300 rounded-lg">
+          <p className="font-bold mb-2">🛠️ Debug - User Object:</p>
+          <pre className="text-xs overflow-auto">
+            {JSON.stringify(user, null, 2)}
+          </pre>
+        </div>
+      )}
     </div>
   );
 }
